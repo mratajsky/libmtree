@@ -10,7 +10,9 @@ libmtree_include_HEADERS =			\
 	mtree.h
 
 libmtree_la_SOURCES =				\
-	mtree.c
+	mtree.c					\
+	mtree_crc.c				\
+	mtree_crc.h
 
 libmtree_la_LDFLAGS =				\
 	-version-info $(LT_VERSION)		\
