@@ -7,12 +7,14 @@ AM_CPPFLAGS =					\
 libmtree_includedir = $(includedir)/libmtree
 
 libmtree_include_HEADERS =			\
-	mtree.h
+	mtree.h					\
+	mtree_spec.h
 
 libmtree_la_SOURCES =				\
 	mtree.c					\
 	mtree_crc.c				\
-	mtree_crc.h
+	mtree_crc.h 				\
+	mtree_spec.c
 
 libmtree_la_LDFLAGS =				\
 	-version-info $(LT_VERSION)		\
