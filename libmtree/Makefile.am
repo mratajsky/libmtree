@@ -8,13 +8,16 @@ libmtree_includedir = $(includedir)/libmtree
 
 libmtree_include_HEADERS =			\
 	mtree.h					\
+	mtree_entry.h 				\
 	mtree_spec.h
 
 libmtree_la_SOURCES =				\
 	mtree.c					\
 	mtree_crc.c				\
 	mtree_crc.h 				\
-	mtree_spec.c
+	mtree_entry.c				\
+	mtree_spec.c                            \
+	mtree_private.h
 
 libmtree_la_LDFLAGS =				\
 	-version-info $(LT_VERSION)		\
