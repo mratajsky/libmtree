@@ -144,9 +144,13 @@ mtree_spec_read_fd(mtree_spec * spec, int fd)
 			ret = parse_chunk(spec, buf, n);
 		} else if (n < 0) {
 			ret = -1;
-		} else /* n == 0 */
+		} else { /* n == 0 */
+			/* If there is no newline at the end of the file, the last
+			 * line is still in the buffer */
+			if (spec->buf != NULL)
+				ret = parse_line(spec, spec->buf);
 			break;
-
+		}
 		if (ret == -1)
 			break;
 	}
