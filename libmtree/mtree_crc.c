@@ -33,10 +33,11 @@
  */
 
 #include <sys/types.h>
+
 #include <unistd.h>
 #include <stdint.h>
 
-#include "mtree_crc.h"
+#include "mtree_private.h"
 
 static const uint32_t crctab[] = {
 	0x0,

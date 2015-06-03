@@ -33,7 +33,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "mtree_entry.h"
+#include "mtree.h"
 #include "mtree_private.h"
 
 mtree_entry *

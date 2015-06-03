@@ -24,8 +24,8 @@
  * SUCH DAMAGE.
  */
 
-#ifndef _LIBMTREE_PRIVATE_H_
-#define _LIBMTREE_PRIVATE_H_
+#ifndef _LIBMTREE_MTREE_PRIVATE_H_
+#define _LIBMTREE_MTREE_PRIVATE_H_
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -33,7 +33,7 @@
 #include <fts.h>
 #include <stdint.h>
 
-#include "mtree_entry.h"
+#include "mtree.h"
 
 struct _mtree_entry {
 	mtree_entry 	*prev;
@@ -61,4 +61,7 @@ void		 mtree_entry_prepend_child(mtree_entry *entry, mtree_entry *child);
 void		 mtree_entry_append_child(mtree_entry *entry, mtree_entry *child);
 void		 mtree_entry_unlink(mtree_entry *entry);
 
-#endif /* !_LIBMTREE_PRIVATE_H_ */
+/* mtree_crc.c */
+int 		 mtree_crc(int fd, uint32_t *crc_val, uint32_t *crc_total);
+
+#endif /* !_LIBMTREE_MTREE_PRIVATE_H_ */

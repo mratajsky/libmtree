@@ -24,9 +24,10 @@
  * SUCH DAMAGE.
  */
 
-#ifndef _LIBMTREE_ENTRY_H_
-#define _LIBMTREE_ENTRY_H_
+#ifndef _LIBMTREE_MTREE_FILE_H_
+#define _LIBMTREE_MTREE_FILE_H_
 
-typedef struct _mtree_entry mtree_entry;
+int mtree_spec_read_file(mtree_spec *spec, const char *file);
+int mtree_spec_read_fd(mtree_spec *spec, int fd);
 
-#endif /* !_LIBMTREE_ENTRY_H_ */
+#endif /* !_LIBMTREE_MTREE_FILE_H_ */

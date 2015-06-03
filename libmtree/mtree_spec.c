@@ -34,7 +34,9 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "mtree_spec.h"
+#include "mtree.h"
+#include "mtree_file.h"
+#include "mtree_private.h"
 
 #ifndef MIN
 #define	MIN(a, b)	((a) > (b) ? (b) : (a))
