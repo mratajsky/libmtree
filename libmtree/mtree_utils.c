@@ -24,6 +24,9 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -79,6 +82,27 @@ mtree_str_to_field(const char *s)
 		if (strcmp(item->str, s) == 0)
 			return item->field;
 	}
+	return -1;
+}
+
+int32_t
+mtree_str_to_type(const char *s)
+{
+	if (strcmp(s, "file") == 0)
+		return S_IFREG;
+	if (strcmp(s, "dir") == 0)
+		return S_IFDIR;
+	if (strcmp(s, "link") == 0)
+		return S_IFLNK;
+	if (strcmp(s, "block") == 0)
+		return S_IFBLK;
+	if (strcmp(s, "char") == 0)
+		return S_IFCHR;
+	if (strcmp(s, "fifo") == 0)
+		return S_IFIFO;
+	if (strcmp(s, "socket") == 0)
+		return S_IFSOCK;
+
 	return -1;
 }
 
