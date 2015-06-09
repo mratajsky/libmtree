@@ -29,6 +29,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,23 +39,15 @@
 #include "mtree_file.h"
 #include "mtree_private.h"
 
-#ifndef MIN
-#define	MIN(a, b)	((a) > (b) ? (b) : (a))
-#endif
-#ifndef MAX
-#define	MAX(a, b)	((a) > (b) ? (a) : (b))
-#endif
-
-#define BUFSIZE_LIMIT 1024
+#define MAX_LINE_LENGTH 	1024
 
 struct _mtree_spec {
 	char *buf;
 	int   buflen;
-	int   bufsize;
 };
 
-static void 	reset_spec_buf(mtree_spec *spec);
 static int 	parse_line(mtree_spec * spec, const char *line);
+static int 	parse_finish(mtree_spec *spec);
 static int 	parse_chunk(mtree_spec * spec, const char *chunk, int len);
 
 mtree_spec *
@@ -73,7 +66,8 @@ mtree_spec_free(mtree_spec * spec)
 
 	assert(spec != NULL);
 
-	mtree_spec_reset(spec);
+	if (spec->buf != NULL)
+		free(spec->buf);
 	free(spec);
 }
 
@@ -83,7 +77,7 @@ mtree_spec_reset(mtree_spec *spec)
 
 	assert(spec != NULL);
 
-	reset_spec_buf(spec);
+	spec->buflen = 0;
 }
 
 int
@@ -112,8 +106,8 @@ mtree_spec_read_file(mtree_spec *spec, const char *file)
 		 * line is still in the buffer */
 		if (ferror(fp))
 			ret = -1;
-		else if (spec->buf != NULL)
-			ret = parse_line(spec, spec->buf);
+		else
+			ret = parse_finish(spec);
 	}
 
 	if (ret == 0) {
@@ -125,7 +119,6 @@ mtree_spec_read_file(mtree_spec *spec, const char *file)
 		fclose(fp);
 		errno = err;
 	}
-	reset_spec_buf(spec);
 	return (ret);
 }
 
@@ -147,16 +140,13 @@ mtree_spec_read_fd(mtree_spec * spec, int fd)
 		} else if (n < 0) {
 			ret = -1;
 		} else { /* n == 0 */
-			/* If there is no newline at the end of the file, the last
-			 * line is still in the buffer */
-			if (spec->buf != NULL)
-				ret = parse_line(spec, spec->buf);
+			/* Read what remains in the internal buffer */
+			ret = parse_finish(spec);
 			break;
 		}
 		if (ret == -1)
 			break;
 	}
-	reset_spec_buf(spec);
 	return (ret);
 }
 
@@ -178,9 +168,8 @@ mtree_spec_read_data_end(mtree_spec *spec)
 	assert(spec != NULL);
 
 	if (spec->buf != NULL) {
-		/* There is at most one line left in the buffer */
-		ret = parse_line(spec, spec->buf);
-		reset_spec_buf(spec);
+		/* Read what remains in the internal buffer */
+		ret = parse_finish(spec);
 	} else
 		ret = 0;
 
@@ -188,103 +177,120 @@ mtree_spec_read_data_end(mtree_spec *spec)
 }
 
 static int
-append_spec_buf(mtree_spec *spec, const char *chunk, int len)
-{
-	int buflen;
-
-	assert(len >= 0);
-
-	if (len == 0)
-		return (0);
-
-	buflen = spec->buflen + len;
-	if ((buflen + 1) > BUFSIZE_LIMIT) {
-		errno = ENOBUFS;
-		return (-1);
-	}
-	if ((buflen + 1) > spec->bufsize)
-		spec->bufsize = MAX(buflen + 1, MIN(BUFSIZE_LIMIT, spec->bufsize * 2));
-
-	spec->buf = realloc(spec->buf, spec->bufsize);
-
-	memcpy(spec->buf + spec->buflen, chunk, len);
-	spec->buflen = buflen;
-	spec->buf[buflen] = '\0';
-
-	return (0);
-}
-
-static void
-reset_spec_buf(mtree_spec *spec)
-{
-
-	if (spec->buf == NULL)
-		return;
-
-	free(spec->buf);
-	spec->buf = NULL;
-	spec->buflen = 0;
-	spec->bufsize = 0;
-}
-
-/* Parse the first line of the string */
-static int
 parse_line(mtree_spec *spec, const char *s)
 {
 	return (0);
 }
 
 static int
+parse_finish(mtree_spec *spec)
+{
+
+	if (spec->buflen == 0)
+		return (0);
+
+	/* When reading the final line, do not require it to be terminated
+	 * by a newline. */
+	if (spec->buflen > 1) {
+		if (spec->buf[spec->buflen - 2] == '\\') {
+			/* Surely an incomplete line */
+			errno = EINVAL;
+			return (-1);
+		}
+		parse_line(spec, spec->buf);
+	}
+	spec->buflen = 0;
+	return (0);
+}
+
+static int
 parse_chunk(mtree_spec *spec, const char *s, int len)
 {
-	int ret;
+	char buf[MAX_LINE_LENGTH];
+	int esc;
+	int sidx, bidx;
+	bool done;
 
-	if (len == 0)
-		return (0);
 	if (len < 0)
 		len = strlen(s);
+	if (len == 0)
+		return (0);
 
-	if (spec->buf != NULL) {
-		char *nl;
-
-		nl = memchr(s, '\n', len);
-		if (nl == NULL)
-			return append_spec_buf(spec, s, len);
-
-		/* There is something in the buffer that does not include a newline
-		 * and the current chunk does, combine the buffer and the first line
-		 * of the chunk */
-		if (append_spec_buf(spec, s, nl - s + 1) == -1)
-			return (-1);
-
-		ret = parse_line(spec, spec->buf);
-		if (ret == -1)
-			return (-1);
-
-		/* A single line was passed to parse_line(), so if there wasn't
-		 * an error, the whole line must have been parsed */
-		assert(ret == spec->buflen);
-
-		reset_spec_buf(spec);
-	}
-
-	for (;;) {
-		ret = parse_line(spec, s);
-		if (ret < 0) {
-			ret = -1;
-			break;
-		}
-		if (ret == 0) {
-			/* No newline left in the chunk, append the rest to
-			 * the buffer */
-			if (len > 0)
-				append_spec_buf(spec, s, len);
-			break;
+	while (len) {
+		sidx = 0;
+		if (spec->buflen)
+			esc = spec->buf[spec->buflen - 1] == '\\';
+		else {
+			/* Eat blank characters at the start of the line */
+			while (sidx < len && (s[sidx] == ' ' || s[sidx] == '\t'))
+				sidx++;
+			if (sidx == len)
+				break;
+			esc = 0;
 		}
 
-		s   += ret;
-		len -= ret;
+		bidx = 0;
+		done = false;
+		while (sidx < len) {
+			switch (s[sidx]) {
+			case '\n':
+				/* Eat newlines as well as escaped newlines, keep
+				 * reading after an escaped one */
+				if (esc) {
+					bidx--;
+					esc = 0;
+				} else
+					done = true;
+				break;
+			case '\\':
+				buf[bidx++] = s[sidx];
+				esc ^= 1;
+				break;
+			default:
+				buf[bidx++] = s[sidx];
+				esc = 0;
+				break;
+			}
+
+			if (bidx == MAX_LINE_LENGTH) {
+				errno = ENOBUFS;
+				return (-1);
+			}
+			sidx++;
+			if (done == true)
+				break;
+		}
+		buf[bidx] = '\0';
+
+		if (done == false || spec->buflen) {
+			int nlen;
+
+			nlen = spec->buflen + bidx;
+			if (done == false) {
+				if ((nlen + 1) > MAX_LINE_LENGTH) {
+					errno = ENOBUFS;
+					return (-1);
+				}
+				if (!spec->buf)
+					spec->buf = malloc(MAX_LINE_LENGTH);
+			}
+			memcpy(spec->buf + spec->buflen, buf, bidx + 1);
+			if (done == true) {
+				/* Buffer has a full line */
+				parse_line(spec, spec->buf);
+				spec->buflen = 0;
+			} else {
+				spec->buflen += bidx;
+			}
+		} else if (done == true) {
+			/* The whole line is in buf */
+			if (bidx)
+				parse_line(spec, buf);
+		}
+
+		s   += sidx;
+		len -= sidx;
 	}
 
-	return (ret);
+	return (0);
 }
