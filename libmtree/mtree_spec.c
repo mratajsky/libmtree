@@ -29,7 +29,10 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <inttypes.h>
+#include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,8 +45,10 @@
 #define MAX_LINE_LENGTH 	1024
 
 struct _mtree_spec {
-	char *buf;
-	int   buflen;
+	mtree_entry 	*entries;
+	mtree_entry_data defaults;
+	char 		*buf;
+	int   		 buflen;
 };
 
 static int 	parse_line(mtree_spec * spec, const char *line);
@@ -177,9 +182,423 @@ mtree_spec_read_data_end(mtree_spec *spec)
 }
 
 static int
+read_word(const char *s, char *buf, int bufsz)
+{
+	int sidx, bidx, qidx;
+	int esc, qlvl;
+	bool done;
+
+	sidx = 0;
+	while (s[sidx] == ' ' || s[sidx] == '\t')
+		sidx++;
+
+	esc  = 0;
+	bidx = 0;
+	qidx = -1;
+	qlvl = 0;
+	done = false;
+	do {
+		char c = s[sidx++];
+
+		switch (c) {
+		case '\t':              /* end of the word */
+		case ' ':
+		case '#':		/* comment */
+			if (!esc && qlvl == 0)
+				done = true;
+			break;
+		case '\0':
+			if (qlvl > 0) {
+				errno = EINVAL;
+				return (-1);
+			}
+			done = true;
+			break;
+		case '\\':
+			esc ^= 1;
+			if (esc == 1)
+				continue;
+			break;
+		case '`':		/* quote */
+		case '\'':
+		case '"':
+			if (esc)
+				break;
+			if (qlvl == 0) {
+				qlvl++;
+				qidx = sidx;
+			} else if (c == buf[qidx]) {
+				qlvl--;
+				if (qlvl > 0) {
+					do {
+						qidx--;
+					} while (buf[qidx] != '`' &&
+					    buf[qidx] != '\'' &&
+					    buf[qidx] != '"');
+				} else
+					qidx = -1;
+			} else {
+				qlvl++;
+				qidx = sidx;
+			}
+			break;
+		case 'a':
+			if (esc)
+				c = '\a';
+			break;
+		case 'b':
+			if (esc)
+				c = '\b';
+			break;
+		case 'f':
+			if (esc)
+				c = '\f';
+			break;
+		case 'r':
+			if (esc)
+				c = '\r';
+			break;
+		case 't':
+			if (esc)
+				c = '\t';
+			break;
+		case 'v':
+			if (esc)
+				c = '\v';
+			break;
+		}
+
+		if (!done) {
+			buf[bidx++] = c;
+			esc = 0;
+		}
+	} while (bidx < bufsz && !done);
+
+	if (bidx == bufsz) {
+		errno = ENOBUFS;
+		return (-1);
+	}
+	buf[bidx] = '\0';
+
+	/* The last read character is not a part of the word */
+	return (sidx - 1);
+}
+
+static int
+read_number(const char *tok, u_int base, intmax_t *res, intmax_t min,
+    intmax_t max)
+{
+	char *end;
+	intmax_t val;
+
+	val = strtoimax(tok, &end, base);
+	if (end == tok || end[0] != '\0')
+		return (EINVAL);
+	if (val < min || val > max)
+		return (EDOM);
+	*res = val;
+	return (0);
+}
+
+static int
+read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
+{
+	char keyword[MAX_LINE_LENGTH];
+	char *value, *p;
+	intmax_t num;
+	int32_t field;
+	int32_t type;
+#ifdef HAVE_STRTOFFLAGS
+	u_long flset, flclr;
+#endif
+	int err;
+
+	for (;;) {
+		err = read_word(s, keyword, sizeof(keyword));
+		if (err < 1)
+			break;
+		if (keyword[0] == '\0')
+			break;
+		s += err;
+
+		value = strchr(keyword, '=');
+		if (value != NULL)
+			*value++ = '\0';
+
+		field = mtree_str_to_field(keyword);
+		if (field == -1)
+			continue;
+		if (set == false) {
+			/* Unset a field */
+			data->fields &= ~field;
+			continue;
+		}
+
+		/* Set a field... */
+		err = 0;
+
+		/*
+		 * We use EINVAL and ENOSYS to signal certain conditions:
+		 *
+		 *   EINVAL - Value missing or invalid for a keyword
+		 *            that needs a value. The keyword is ignored.
+		 *   ENOSYS - Unsupported keyword encountered. The
+		 *            keyword is ignored.
+		 */
+		switch (field) {
+		case MTREE_F_CKSUM:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+			err = read_number(value, 10, &num, 0, UINT_MAX);
+			if (err == 0)
+				data->cksum = (uint32_t) num;
+			break;
+		case MTREE_F_CONTENTS:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+			if (data->contents)
+				free(data->contents);
+			data->contents = strdup(value);
+			break;
+#ifdef HAVE_STRTOFFLAGS
+		case MTREE_F_FLAGS:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+			flset = flclr = 0;
+			if (strtofflags(&value, &flset, &flclr) == 0) {
+				data->stat.st_flags &= ~flclr;
+				data->stat.st_flags |= flset;
+			} else
+				err = errno;
+			break;
+#endif
+		case MTREE_F_GID:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+			err = read_number(value, 10, &num, 0, UINT_MAX);
+			if (err == 0)
+				data->stat.st_gid = (gid_t) num;
+			break;
+		case MTREE_F_GNAME:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+			if (data->gname)
+				free(data->gname);
+			data->gname = strdup(value);
+			break;
+		case MTREE_F_IGNORE:
+			/* No value */
+			break;
+		case MTREE_F_INODE:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+			err = read_number(value, 10, &num, 0, UINT_MAX);
+			if (err == 0)
+				data->stat.st_ino = (ino_t) num;
+			break;
+		case MTREE_F_LINK:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+			if (data->link)
+				free(data->link);
+			data->link = strdup(value);
+			break;
+		case MTREE_F_MD5:
+		case MTREE_F_MD5DIGEST:
+			if (data->md5digest)
+				free(data->md5digest);
+			data->md5digest = strdup(value);
+			break;
+		case MTREE_F_MODE:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+			if (value[0] >= '0' && value[0] <= '9') {
+				err = read_number(value, 8, &num,
+				    0, 07777);
+				if (!err) {
+					data->stat.st_mode &= S_IFMT;
+					data->stat.st_mode |= num;
+				}
+			} else {
+				/* Symbolic mode not supported. */
+				err = EINVAL;
+				break;
+			}
+			break;
+		case MTREE_F_NLINK:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+			err = read_number(value, 10, &num, 0, INTMAX_MAX);
+			if (!err)
+				data->stat.st_nlink = (nlink_t) num;
+			break;
+		case MTREE_F_NOCHANGE:
+			/* No value */
+			break;
+		case MTREE_F_OPTIONAL:
+			/* No value */
+			break;
+		case MTREE_F_RIPEMD160DIGEST:
+		case MTREE_F_RMD160:
+		case MTREE_F_RMD160DIGEST:
+			if (data->rmd160digest)
+				free(data->rmd160digest);
+			data->rmd160digest = strdup(value);
+			break;
+		case MTREE_F_SHA1:
+		case MTREE_F_SHA1DIGEST:
+			if (data->sha1digest)
+				free(data->sha1digest);
+			data->sha1digest = strdup(value);
+			break;
+		case MTREE_F_SHA256:
+		case MTREE_F_SHA256DIGEST:
+			if (data->sha256digest)
+				free(data->sha256digest);
+			data->sha256digest = strdup(value);
+			break;
+		case MTREE_F_SHA384:
+		case MTREE_F_SHA384DIGEST:
+			if (data->sha384digest)
+				free(data->sha384digest);
+			data->sha384digest = strdup(value);
+			break;
+		case MTREE_F_SHA512:
+		case MTREE_F_SHA512DIGEST:
+			if (data->sha512digest)
+				free(data->sha512digest);
+			data->sha512digest = strdup(value);
+			break;
+		case MTREE_F_SIZE:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+			err = read_number(value, 10, &num, 0, INTMAX_MAX);
+			if (!err)
+				data->stat.st_size = num;
+			break;
+		case MTREE_F_TIME:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+
+			/* Seconds */
+			p = strchr(value, '.');
+			if (p != NULL)
+				*p++ = '\0';
+			err = read_number(value, 10, &num, 0, INTMAX_MAX);
+			if (err)
+				break;
+			data->stat.st_mtim.tv_sec = num;
+			if (p == NULL)
+				break;
+
+			/* Nanoseconds */
+			err = read_number(p, 10, &num, 0, INTMAX_MAX);
+			if (err)
+				break;
+			data->stat.st_mtim.tv_nsec = num;
+			break;
+		case MTREE_F_TYPE:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+			type = mtree_str_to_type(value);
+			if (type != -1) {
+				data->stat.st_mode &= ~S_IFMT;
+				data->stat.st_mode |= type;
+			} else
+				err = EINVAL;
+			break;
+		case MTREE_F_UID:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+			err = read_number(value, 10, &num, 0, UINT_MAX);
+			if (err == 0)
+				data->stat.st_uid = (uid_t) num;
+			break;
+		case MTREE_F_UNAME:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+			if (data->uname)
+				free(data->uname);
+			data->uname = strdup(value);
+			break;
+		default:
+			err = ENOSYS;
+			break;
+		}
+
+		if (err == 0)
+			data->fields |= field;
+	}
+
+	return (0);
+}
+
+static int
+read_mtree_command(mtree_spec *spec, const char *s)
+{
+	char cmd[10];
+	int ret;
+
+	ret = read_word(s, cmd, sizeof(cmd));
+	if (ret < 1)
+		return (ret);
+
+	if (!strcmp(cmd, "/set"))
+		ret = read_mtree_keywords(s + ret, &spec->defaults, true);
+	else if (!strcmp(cmd, "/unset"))
+		ret = read_mtree_keywords(s + ret, &spec->defaults, false);
+	else
+		ret = 0;
+
+	return (ret);
+}
+
+static int
 parse_line(mtree_spec *spec, const char *s)
 {
-	return (0);
+	int ret;
+
+	switch (*s) {
+	case '\0':              /* empty line */
+	case '#':               /* comment */
+		ret = 0;
+		break;
+	case '/':               /* special commands */
+		ret = read_mtree_command(spec, s);
+		break;
+	default:                /* specification */
+		break;
+	}
+
+	return (ret);
 }
 
 static int

@@ -75,6 +75,11 @@ LT_INIT
 PKG_PROG_PKG_CONFIG
 
 # =======================================================================
+# Portability checks
+# =======================================================================
+AC_CHECK_FUNCS([fflagstostr strtofflags])
+
+# =======================================================================
 # Compiler options
 # =======================================================================
 CFLAGS="$CFLAGS -pedantic -Wall -Wextra -Wmissing-declarations -Wmissing-prototypes"

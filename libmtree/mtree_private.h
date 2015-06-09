@@ -35,20 +35,39 @@
 
 #include "mtree.h"
 
-struct _mtree_entry {
-	mtree_entry 	*prev;
-	mtree_entry 	*next;
-	mtree_entry 	*parent;
-	mtree_entry 	*children;
-	char		*name;
-	struct stat	 stat;
+typedef struct _mtree_entry_data mtree_entry_data;
+
+struct _mtree_entry_data {
 	uint32_t	 cksum;
+	uint32_t	 fields;
+	char		*contents;
+	char		*flags;
+	char		*gname;
+	char		*link;
+	char		*uname;
 	char		*md5digest;
 	char		*rmd160digest;
 	char		*sha1digest;
 	char		*sha256digest;
 	char		*sha384digest;
 	char		*sha512digest;
+	struct {
+		gid_t	st_gid;
+		ino_t	st_ino;
+		mode_t	st_mode;
+		struct timespec st_mtim;
+		nlink_t	st_nlink;
+		off_t	st_size;
+		uid_t	st_uid;
+	} stat;
+};
+
+struct _mtree_entry {
+	mtree_entry 	*prev;
+	mtree_entry 	*next;
+	char            *path;
+	char            *name;
+	mtree_entry_data data;
 };
 
 /* mtree_entry.c */
