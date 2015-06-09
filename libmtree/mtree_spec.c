@@ -185,28 +185,31 @@ parse_line(mtree_spec *spec, const char *s)
 static int
 parse_finish(mtree_spec *spec)
 {
+	int ret;
 
 	if (spec->buflen == 0)
 		return (0);
 
 	/* When reading the final line, do not require it to be terminated
 	 * by a newline. */
+	ret = 0;
 	if (spec->buflen > 1) {
 		if (spec->buf[spec->buflen - 2] == '\\') {
 			/* Surely an incomplete line */
 			errno = EINVAL;
-			return (-1);
-		}
-		parse_line(spec, spec->buf);
+			ret = -1;
+		} else
+			ret = parse_line(spec, spec->buf);
 	}
 	spec->buflen = 0;
-	return (0);
+	return (ret);
 }
 
 static int
 parse_chunk(mtree_spec *spec, const char *s, int len)
 {
 	char buf[MAX_LINE_LENGTH];
+	int ret;
 	int esc;
 	int sidx, bidx;
 	bool done;
@@ -216,6 +219,7 @@ parse_chunk(mtree_spec *spec, const char *s, int len)
 	if (len == 0)
 		return (0);
 
+	ret = 0;
 	while (len) {
 		sidx = 0;
 		if (spec->buflen)
@@ -277,20 +281,25 @@ parse_chunk(mtree_spec *spec, const char *s, int len)
 			memcpy(spec->buf + spec->buflen, buf, bidx + 1);
 			if (done == true) {
 				/* Buffer has a full line */
-				parse_line(spec, spec->buf);
+				ret = parse_line(spec, spec->buf);
 				spec->buflen = 0;
+				if (ret == -1)
+					break;
 			} else {
 				spec->buflen += bidx;
 			}
 		} else if (done == true) {
 			/* The whole line is in buf */
-			if (bidx)
-				parse_line(spec, buf);
+			if (bidx) {
+				ret = parse_line(spec, buf);
+				if (ret == -1)
+					break;
+			}
 		}
 
 		s   += sidx;
 		len -= sidx;
 	}
 
-	return (0);
+	return (ret);
 }
