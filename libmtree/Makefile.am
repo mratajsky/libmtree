@@ -14,7 +14,8 @@ libmtree_la_SOURCES =				\
 	mtree.c					\
 	mtree_crc.c				\
 	mtree_entry.c				\
-	mtree_spec.c                            \
+	mtree_spec.c 				\
+	mtree_utils.c 				\
 	mtree_private.h
 
 libmtree_la_LDFLAGS =				\
