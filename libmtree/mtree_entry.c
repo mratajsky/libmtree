@@ -32,9 +32,25 @@
 #include <fts.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "mtree.h"
 #include "mtree_private.h"
+
+#define E_HAS_FIELD(e, f)	((e)->data.fields & (f))
+#define E_SET_FIELD(e, f)	((e)->data.fields |= (f))
+#define D_HAS_FIELD(d, f)	((d)->fields & (f))
+#define D_SET_FIELD(d, f)	((d)->fields |= (f))
+
+/* Mask of all fields read by stat(2) */
+#define F_MASK_STAT		(MTREE_F_GID |	 \
+				 MTREE_F_INODE | \
+				 MTREE_F_MODE |	 \
+				 MTREE_F_NLINK | \
+				 MTREE_F_SIZE |	 \
+				 MTREE_F_TIME |	 \
+				 MTREE_F_TYPE |	 \
+				 MTREE_F_UID);
 
 mtree_entry *
 mtree_entry_create(void)
@@ -50,12 +66,13 @@ mtree_entry *
 mtree_entry_create_from_file(const char *path)
 {
 	mtree_entry *entry;
+	struct stat  st;
 
 	entry = mtree_entry_create();
 	if (entry == NULL)
 		return (NULL);
 
-	if (stat(path, &entry->stat) == -1) {
+	if (stat(path, &st) == -1) {
 		free(entry);
 		return (NULL);
 	}
@@ -67,13 +84,25 @@ mtree_entry_create_from_ftsent(FTSENT *ftsent)
 {
 	mtree_entry *entry;
 
+	assert (ftsent != NULL);
+	assert (ftsent->fts_statp != NULL);
+
 	entry = mtree_entry_create();
 	if (entry == NULL)
 		return (NULL);
 
-	/* XXX might not be available, use a flag */
-	entry->stat = *(ftsent->fts_statp);
+	entry->path = strdup(ftsent->fts_path);
+	entry->name = strdup(ftsent->fts_name);
 
+	/* Copy stat parts */
+	entry->data.stat.st_gid   = ftsent->fts_statp->st_gid;
+	entry->data.stat.st_ino   = ftsent->fts_statp->st_ino;
+	entry->data.stat.st_mode  = ftsent->fts_statp->st_mode;
+	entry->data.stat.st_mtim  = ftsent->fts_statp->st_mtim;
+	entry->data.stat.st_nlink = ftsent->fts_statp->st_nlink;
+	entry->data.stat.st_size  = ftsent->fts_statp->st_size;
+	entry->data.stat.st_uid	  = ftsent->fts_statp->st_uid;
+	entry->data.fields   	  = F_MASK_STAT;
 	return (entry);
 }
 
@@ -82,6 +111,113 @@ mtree_entry_free(mtree_entry *entry)
 {
 
 	free(entry);
+}
+
+static void
+copy_field(mtree_entry_data *data, mtree_entry_data *from, int32_t field)
+{
+
+	switch (field) {
+	case MTREE_F_CKSUM:
+		data->cksum = from->cksum;
+		break;
+	case MTREE_F_CONTENTS:
+		mtree_copy_string(&data->contents, from->contents);
+		break;
+	case MTREE_F_FLAGS:
+		mtree_copy_string(&data->flags, from->flags);
+		break;
+	case MTREE_F_GID:
+		data->stat.st_gid = from->stat.st_gid;
+		break;
+	case MTREE_F_GNAME:
+		mtree_copy_string(&data->gname, from->gname);
+		break;
+	case MTREE_F_IGNORE:
+		/* No value */
+		break;
+	case MTREE_F_INODE:
+		data->stat.st_ino = from->stat.st_ino;
+		break;
+	case MTREE_F_LINK:
+		mtree_copy_string(&data->link, from->link);
+		break;
+	case MTREE_F_MD5:
+	case MTREE_F_MD5DIGEST:
+		mtree_copy_string(&data->md5digest, from->md5digest);
+		break;
+	case MTREE_F_MODE:
+		data->stat.st_mode &= S_IFMT;
+		data->stat.st_mode |= from->stat.st_mode & ~S_IFMT;
+		break;
+	case MTREE_F_NLINK:
+		data->stat.st_nlink = from->stat.st_nlink;
+		break;
+	case MTREE_F_NOCHANGE:
+		/* No value */
+		break;
+	case MTREE_F_OPTIONAL:
+		/* No value */
+		break;
+	case MTREE_F_RIPEMD160DIGEST:
+	case MTREE_F_RMD160:
+	case MTREE_F_RMD160DIGEST:
+		mtree_copy_string(&data->rmd160digest, from->rmd160digest);
+		break;
+	case MTREE_F_SHA1:
+	case MTREE_F_SHA1DIGEST:
+		mtree_copy_string(&data->sha1digest, from->sha1digest);
+		break;
+	case MTREE_F_SHA256:
+	case MTREE_F_SHA256DIGEST:
+		mtree_copy_string(&data->sha256digest, from->sha256digest);
+		break;
+	case MTREE_F_SHA384:
+	case MTREE_F_SHA384DIGEST:
+		mtree_copy_string(&data->sha384digest, from->sha384digest);
+		break;
+	case MTREE_F_SHA512:
+	case MTREE_F_SHA512DIGEST:
+		mtree_copy_string(&data->sha512digest, from->sha512digest);
+		break;
+	case MTREE_F_SIZE:
+		data->stat.st_size = from->stat.st_size;
+		break;
+	case MTREE_F_TIME:
+		data->stat.st_mtim = from->stat.st_mtim;
+		break;
+	case MTREE_F_TYPE:
+		data->stat.st_mode &= ~S_IFMT;
+		data->stat.st_mode |= (from->stat.st_mode & S_IFMT);
+		break;
+	case MTREE_F_UID:
+		data->stat.st_uid = from->stat.st_uid;
+		break;
+	case MTREE_F_UNAME:
+		mtree_copy_string(&data->uname, from->uname);
+		break;
+	default:
+		/* Invalid field */
+		return;
+	}
+
+	data->fields |= field;
+}
+
+void
+mtree_entry_copy_missing_fields(mtree_entry *entry, mtree_entry_data *from)
+{
+	int i;
+
+	assert(entry != NULL);
+	assert(from != NULL);
+
+	for (i = 0; mtree_fields[i].name != NULL; i++) {
+		if (E_HAS_FIELD(entry, mtree_fields[i].field) ||
+		    !D_HAS_FIELD(from, mtree_fields[i].field))
+			continue;
+		copy_field(&entry->data, from, mtree_fields[i].field);
+	}
 }
 
 mtree_entry *

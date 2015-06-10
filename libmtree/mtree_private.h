@@ -66,9 +66,18 @@ struct _mtree_entry_data {
 struct _mtree_entry {
 	mtree_entry 	*prev;
 	mtree_entry 	*next;
+	mtree_entry 	*parent;
 	char            *path;
 	char            *name;
 	mtree_entry_data data;
+};
+
+struct _mtree_spec {
+	mtree_entry 	*entries;
+	mtree_entry 	*parent;
+	mtree_entry_data defaults;
+	char 		*buf;
+	int   		 buflen;
 };
 
 struct _mtree_field_map {
@@ -83,6 +92,7 @@ mtree_entry	*mtree_entry_create(void);
 mtree_entry	*mtree_entry_create_from_file(const char *path);
 mtree_entry	*mtree_entry_create_from_ftsent(FTSENT *ftsent);
 void		 mtree_entry_free(mtree_entry *entry);
+void 		 mtree_entry_copy_missing_fields(mtree_entry *entry, mtree_entry_data *from);
 mtree_entry 	*mtree_entry_prepend(mtree_entry *entry, mtree_entry *child);
 mtree_entry 	*mtree_entry_append(mtree_entry *entry, mtree_entry *child);
 

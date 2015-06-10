@@ -29,6 +29,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <fts.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <stdbool.h>
@@ -44,12 +45,8 @@
 
 #define MAX_LINE_LENGTH 	1024
 
-struct _mtree_spec {
-	mtree_entry 	*entries;
-	mtree_entry_data defaults;
-	char 		*buf;
-	int   		 buflen;
-};
+#define	IS_DOT(nm)		((nm)[0] == '.' && (nm)[1] == '\0')
+#define	IS_DOTDOT(nm)		((nm)[0] == '.' && (nm)[1] == '.' && (nm)[2] == '\0')
 
 static int 	parse_line(mtree_spec * spec, const char *line);
 static int 	parse_finish(mtree_spec *spec);
@@ -60,7 +57,7 @@ mtree_spec_create(void)
 {
 	mtree_spec *spec;
 
-	spec = malloc(sizeof(mtree_spec));
+	spec = calloc(1, sizeof(mtree_spec));
 
 	return (spec);
 }
@@ -162,6 +159,7 @@ mtree_spec_read_data(mtree_spec * spec, const char *data, int len)
 	assert(spec != NULL);
 	assert(data != NULL);
 
+	// XXX probably mark that we are reading until _end is called
 	return (parse_chunk(spec, data, len));
 }
 
@@ -178,6 +176,91 @@ mtree_spec_read_data_end(mtree_spec *spec)
 	} else
 		ret = 0;
 
+	return (ret);
+}
+
+int
+mtree_spec_add_file(mtree_spec *spec, const char *path)
+{
+	mtree_entry *entry;
+
+	assert (spec != NULL);
+	assert (path != NULL);
+
+	entry = mtree_entry_create_from_file (path);
+	if (entry == NULL)
+		return (-1);
+
+	spec->entries = mtree_entry_append(spec->entries, entry);
+	return (0);
+}
+
+int
+mtree_spec_add_directory(mtree_spec *spec, const char *path)
+{
+	FTS *fts;
+	FTSENT *ftsent;
+	mtree_entry *first, *entry;
+	char *argv[2];
+	struct stat st;
+	int ret;
+
+	assert (spec != NULL);
+	assert (path != NULL);
+
+	/* Make sure the supplied path is a directory */
+	if (stat(path, &st) == -1)
+		return (-1);
+	if (!S_ISDIR(st.st_mode)) {
+		errno = ENOTDIR;
+		return (-1);
+	}
+
+	argv[0] = (char *) path;
+	argv[1] = NULL;
+	fts = fts_open(argv, FTS_PHYSICAL, NULL);
+	if (fts == NULL)
+		return (-1);
+
+	first = NULL;
+	ret = 0;
+	while (ret == 0) {
+		ftsent = fts_read(fts);
+		if (ftsent == NULL)
+			break;
+
+		switch (ftsent->fts_info) {
+		case FTS_DNR:
+		case FTS_ERR:
+		case FTS_NS:
+			errno = ftsent->fts_errno;
+			ret = -1;
+			break;
+		case FTS_DP:
+		case FTS_DC:
+		case FTS_DOT:
+			break;
+		default:
+			entry = mtree_entry_create_from_ftsent(ftsent);
+			if (entry == NULL) {
+				ret = -1;
+				break;
+			}
+			first = mtree_entry_append(first, entry);
+			break;
+		}
+	}
+
+	// XXX probably add option whether to stop or skip on error
+	if (ret == 0) {
+		spec->entries = mtree_entry_append(spec->entries, first);
+	} else {
+		int err;
+
+		err = errno;
+		fts_close(fts);
+		errno = err;
+	}
 	return (ret);
 }
 
@@ -561,6 +644,56 @@ read_mtree_command(mtree_spec *spec, const char *s)
 	return (ret);
 }
 
+#define ENTRY_IS_DIR(entry)	(S_ISDIR((entry)->data.stat.st_mode))
+#define ENTRY_IS_FILE(entry)	(S_ISREG((entry)->data.stat.st_mode))
+
+static int
+read_mtree_spec(mtree_spec *spec, const char *s)
+{
+	mtree_entry *entry;
+	char path[MAX_LINE_LENGTH];
+	char *p;
+	int ret;
+
+	ret = read_word(s, path, sizeof(path));
+	if (ret < 1)
+		return (ret);
+
+	if (IS_DOTDOT(path)) {
+		/* Only change the parent, keywords are ignored */
+		if (spec->parent == NULL || spec->parent->parent == NULL) {
+			errno = EINVAL;
+			return (-1);
+		}
+		spec->parent = spec->parent->parent;
+		return (0);
+	} else {
+		entry = mtree_entry_create();
+		if (entry == NULL)
+			return (-1);
+		ret = read_mtree_keywords(s + ret, &entry->data, true);
+		if (ret == -1) {
+			mtree_entry_free(entry);
+			return (-1);
+		}
+		mtree_entry_copy_missing_fields(entry, &spec->defaults);
+
+		p = strchr(path, '/');
+		if (p != NULL) {
+			/* Relative path */
+		} else {
+			entry->name = strdup(path);
+			entry->parent = spec->parent;
+
+			if (ENTRY_IS_DIR(entry))
+				spec->parent = entry;
+		}
+		spec->entries = mtree_entry_append(spec->entries, entry);
+	}
+
+	return (0);
+}
+
 static int
 parse_line(mtree_spec *spec, const char *s)
 {
@@ -575,6 +708,7 @@ parse_line(mtree_spec *spec, const char *s)
 		ret = read_mtree_command(spec, s);
 		break;
 	default:                /* specification */
+		ret = read_mtree_spec(spec, s);
 		break;
 	}
 
