@@ -85,5 +85,6 @@ int 		 mtree_crc(int fd, uint32_t *crc_val, uint32_t *crc_total);
 int32_t 	 mtree_str_to_field(const char *s);
 int32_t 	 mtree_str_to_type(const char *s);
 const char 	*mtree_field_to_str(int32_t field);
+int		 mtree_copy_string(char **dst, const char *src);
 
 #endif /* !_LIBMTREE_MTREE_PRIVATE_H_ */

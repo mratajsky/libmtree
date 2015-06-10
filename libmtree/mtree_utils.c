@@ -27,8 +27,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "mtree.h"
@@ -116,4 +118,18 @@ mtree_field_to_str(int32_t field)
 			return item->str;
 	}
 	return NULL;
+}
+
+int
+mtree_copy_string(char **dst, const char *src)
+{
+
+	assert(dst != NULL);
+	assert(src != NULL);
+
+	free(*dst);
+	if ((*dst = strdup(src)) == NULL)
+		return (-1);
+
+	return (0);
 }

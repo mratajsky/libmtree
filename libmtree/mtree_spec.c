@@ -360,9 +360,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 				err = EINVAL;
 				break;
 			}
-			if (data->contents)
-				free(data->contents);
-			data->contents = strdup(value);
+			mtree_copy_string(&data->contents, value);
 			break;
 #ifdef HAVE_STRTOFFLAGS
 		case MTREE_F_FLAGS:
@@ -392,9 +390,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 				err = EINVAL;
 				break;
 			}
-			if (data->gname)
-				free(data->gname);
-			data->gname = strdup(value);
+			mtree_copy_string(&data->gname, value);
 			break;
 		case MTREE_F_IGNORE:
 			/* No value */
@@ -413,15 +409,11 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 				err = EINVAL;
 				break;
 			}
-			if (data->link)
-				free(data->link);
-			data->link = strdup(value);
+			mtree_copy_string(&data->link, value);
 			break;
 		case MTREE_F_MD5:
 		case MTREE_F_MD5DIGEST:
-			if (data->md5digest)
-				free(data->md5digest);
-			data->md5digest = strdup(value);
+			mtree_copy_string(&data->md5digest, value);
 			break;
 		case MTREE_F_MODE:
 			if (value == NULL) {
@@ -459,33 +451,23 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 		case MTREE_F_RIPEMD160DIGEST:
 		case MTREE_F_RMD160:
 		case MTREE_F_RMD160DIGEST:
-			if (data->rmd160digest)
-				free(data->rmd160digest);
-			data->rmd160digest = strdup(value);
+			mtree_copy_string(&data->rmd160digest, value);
 			break;
 		case MTREE_F_SHA1:
 		case MTREE_F_SHA1DIGEST:
-			if (data->sha1digest)
-				free(data->sha1digest);
-			data->sha1digest = strdup(value);
+			mtree_copy_string(&data->sha1digest, value);
 			break;
 		case MTREE_F_SHA256:
 		case MTREE_F_SHA256DIGEST:
-			if (data->sha256digest)
-				free(data->sha256digest);
-			data->sha256digest = strdup(value);
+			mtree_copy_string(&data->sha256digest, value);
 			break;
 		case MTREE_F_SHA384:
 		case MTREE_F_SHA384DIGEST:
-			if (data->sha384digest)
-				free(data->sha384digest);
-			data->sha384digest = strdup(value);
+			mtree_copy_string(&data->sha384digest, value);
 			break;
 		case MTREE_F_SHA512:
 		case MTREE_F_SHA512DIGEST:
-			if (data->sha512digest)
-				free(data->sha512digest);
-			data->sha512digest = strdup(value);
+			mtree_copy_string(&data->sha512digest, value);
 			break;
 		case MTREE_F_SIZE:
 			if (value == NULL) {
@@ -545,9 +527,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 				err = EINVAL;
 				break;
 			}
-			if (data->uname)
-				free(data->uname);
-			data->uname = strdup(value);
+			mtree_copy_string(&data->uname, value);
 			break;
 		default:
 			err = ENOSYS;
