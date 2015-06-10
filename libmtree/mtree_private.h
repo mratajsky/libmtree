@@ -75,10 +75,8 @@ mtree_entry	*mtree_entry_create(void);
 mtree_entry	*mtree_entry_create_from_file(const char *path);
 mtree_entry	*mtree_entry_create_from_ftsent(FTSENT *ftsent);
 void		 mtree_entry_free(mtree_entry *entry);
-
-void		 mtree_entry_prepend_child(mtree_entry *entry, mtree_entry *child);
-void		 mtree_entry_append_child(mtree_entry *entry, mtree_entry *child);
-void		 mtree_entry_unlink(mtree_entry *entry);
+mtree_entry 	*mtree_entry_prepend(mtree_entry *entry, mtree_entry *child);
+mtree_entry 	*mtree_entry_append(mtree_entry *entry, mtree_entry *child);
 
 /* mtree_crc.c */
 int 		 mtree_crc(int fd, uint32_t *crc_val, uint32_t *crc_total);

@@ -74,4 +74,9 @@ int              mtree_spec_read_data_end(mtree_spec *spec);
 int              mtree_spec_add_file(mtree_spec *spec, const char *path);
 int              mtree_spec_add_directory(mtree_spec *spec, const char *path);
 
+mtree_entry 	*mtree_entry_first(mtree_entry *entry);
+mtree_entry 	*mtree_entry_last(mtree_entry *entry);
+mtree_entry 	*mtree_entry_previous(mtree_entry *entry);
+mtree_entry 	*mtree_entry_next(mtree_entry *entry);
+
 #endif /* !_LIBMTREE_MTREE_H_ */

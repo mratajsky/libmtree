@@ -84,60 +84,77 @@ mtree_entry_free(mtree_entry *entry)
 	free(entry);
 }
 
-void
-mtree_entry_prepend_child(mtree_entry *entry, mtree_entry *child)
+mtree_entry *
+mtree_entry_first(mtree_entry *entry)
 {
 
 	assert(entry != NULL);
-	assert(child != NULL);
 
-	if (entry->children != NULL) {
-		entry->children->prev = child;
-		child->next = entry->children;
-	} else {
-		child->next = NULL;
-	}
-	entry->children = child;
-	child->parent = entry;
+	while (entry->prev != NULL)
+		entry = entry->prev;
+
+	return entry;
 }
 
-void
-mtree_entry_append_child(mtree_entry *entry, mtree_entry *child)
+mtree_entry *
+mtree_entry_last(mtree_entry *entry)
 {
 
 	assert(entry != NULL);
-	assert(child != NULL);
 
-	if (entry->children != NULL) {
+	while (entry->next != NULL)
+		entry = entry->next;
+
+	return entry;
+}
+
+mtree_entry *
+mtree_entry_previous(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return entry->prev;
+}
+
+mtree_entry *
+mtree_entry_next(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return entry->next;
+}
+
+mtree_entry *
+mtree_entry_prepend(mtree_entry *entry, mtree_entry *child)
+{
+
+	child->next = entry;
+	if (entry != NULL) {
+		child->prev = entry->prev;
+		if (entry->prev != NULL)
+			entry->prev->next = child;
+		entry->prev = child;
+	} else
+		child->prev = NULL;
+
+	return (child);
+}
+
+mtree_entry *
+mtree_entry_append(mtree_entry *entry, mtree_entry *child)
+{
+
+	if (entry != NULL) {
 		mtree_entry *last;
 
-		last = entry->children;
-		while (last->next != NULL)
-			last = last->next;
-
-		last->next = child;
-		child->prev = last;
+		last = mtree_entry_last(entry);
+		last->next  = child;
+		child->prev = entry;
 	} else {
-		entry->children = child;
+		child->prev = NULL;
+		entry = child;
 	}
-	child->parent = entry;
-}
-
-void
-mtree_entry_unlink(mtree_entry *entry)
-{
-
-	assert(entry != NULL);
-
-	if (entry->prev != NULL)
-		entry->prev->next = entry->next;
-	else if (entry->parent != NULL)
-		entry->parent->children = entry->next;
-
-	if (entry->next != NULL) {
-		entry->next->prev = entry->prev;
-		entry->next = NULL;
-	}
-	entry->prev = NULL;
-	entry->parent = NULL;
+	return (entry);
 }
