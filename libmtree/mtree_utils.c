@@ -36,12 +36,7 @@
 #include "mtree.h"
 #include "mtree_private.h"
 
-typedef struct {
-	char   *str;
-	int32_t field;
-} mtree_field_map;
-
-static mtree_field_map fm[] = {
+const mtree_field_map mtree_fields[] = {
 	{ "cksum", 		MTREE_F_CKSUM },
 	{ "contents", 		MTREE_F_CONTENTS },
 	{ "flags", 		MTREE_F_FLAGS },
@@ -78,13 +73,14 @@ static mtree_field_map fm[] = {
 int32_t
 mtree_str_to_field(const char *s)
 {
-	mtree_field_map *item;
+	int i;
 
-	for (item = fm; item->str != NULL; item++) {
-		if (strcmp(item->str, s) == 0)
-			return item->field;
+	for (i = 0; mtree_fields[i].name != NULL; i++) {
+		if (strcmp(mtree_fields[i].name, s))
+			continue;
+		return mtree_fields[i].field;
 	}
-	return -1;
+	return (-1);
 }
 
 int32_t
@@ -105,19 +101,20 @@ mtree_str_to_type(const char *s)
 	if (strcmp(s, "socket") == 0)
 		return S_IFSOCK;
 
-	return -1;
+	return (-1);
 }
 
 const char *
 mtree_field_to_str(int32_t field)
 {
-	mtree_field_map *item;
+	int i;
 
-	for (item = fm; item->str != NULL; item++) {
-		if (item->field == field)
-			return item->str;
+	for (i = 0; mtree_fields[i].name != NULL; i++) {
+		if (mtree_fields[i].field != field)
+			continue;
+		return mtree_fields[i].name;
 	}
-	return NULL;
+	return (NULL);
 }
 
 int

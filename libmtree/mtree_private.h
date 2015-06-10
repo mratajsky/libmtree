@@ -36,6 +36,7 @@
 #include "mtree.h"
 
 typedef struct _mtree_entry_data mtree_entry_data;
+typedef struct _mtree_field_map  mtree_field_map;
 
 struct _mtree_entry_data {
 	uint32_t	 cksum;
@@ -69,6 +70,13 @@ struct _mtree_entry {
 	char            *name;
 	mtree_entry_data data;
 };
+
+struct _mtree_field_map {
+	char		*name;
+	int32_t		 field;
+};
+
+extern const mtree_field_map mtree_fields[];
 
 /* mtree_entry.c */
 mtree_entry	*mtree_entry_create(void);
