@@ -35,8 +35,9 @@
 
 #include "mtree.h"
 
-typedef struct _mtree_entry_data mtree_entry_data;
-typedef struct _mtree_field_map  mtree_field_map;
+typedef struct _mtree_entry_data	mtree_entry_data;
+typedef struct _mtree_field_map		mtree_field_map;
+typedef struct _mtree_reader		mtree_reader;
 
 struct _mtree_entry_data {
 	uint32_t	 cksum;
@@ -72,12 +73,17 @@ struct _mtree_entry {
 	mtree_entry_data data;
 };
 
-struct _mtree_spec {
+struct _mtree_reader {
 	mtree_entry 	*entries;
 	mtree_entry 	*parent;
 	mtree_entry_data defaults;
 	char 		*buf;
 	int   		 buflen;
+};
+
+struct _mtree_spec {
+	mtree_entry 	*entries;
+	mtree_reader 	*reader;
 };
 
 struct _mtree_field_map {
@@ -100,6 +106,13 @@ mtree_entry 	*mtree_entry_append(mtree_entry *entry, mtree_entry *child);
 
 /* mtree_crc.c */
 int 		 mtree_crc(int fd, uint32_t *crc_val, uint32_t *crc_total);
+
+/* mtree_reader.c */
+mtree_reader	*mtree_reader_create(void);
+void		 mtree_reader_free(mtree_reader *r);
+void		 mtree_reader_reset(mtree_reader *r);
+int		 mtree_reader_add(mtree_reader *r, const char *s, int len);
+int		 mtree_reader_finish(mtree_reader *r, mtree_entry **entries);
 
 /* mtree_utils.c */
 int32_t 	 mtree_str_to_field(const char *s);
