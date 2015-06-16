@@ -92,7 +92,9 @@ mtree_entry	*mtree_entry_create(void);
 mtree_entry	*mtree_entry_create_from_file(const char *path);
 mtree_entry	*mtree_entry_create_from_ftsent(FTSENT *ftsent);
 void		 mtree_entry_free(mtree_entry *entry);
-void 		 mtree_entry_copy_missing_fields(mtree_entry *entry, mtree_entry_data *from);
+void		 mtree_entry_free_all(mtree_entry *entries);
+void		 mtree_entry_free_data_items(mtree_entry_data *data);
+void		 mtree_entry_copy_missing_fields(mtree_entry *entry, mtree_entry_data *from);
 mtree_entry 	*mtree_entry_prepend(mtree_entry *entry, mtree_entry *child);
 mtree_entry 	*mtree_entry_append(mtree_entry *entry, mtree_entry *child);
 

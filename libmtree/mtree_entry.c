@@ -110,7 +110,39 @@ void
 mtree_entry_free(mtree_entry *entry)
 {
 
+	mtree_entry_free_data_items(&entry->data);
+	free(entry->path);
+	free(entry->name);
 	free(entry);
+}
+
+void
+mtree_entry_free_all(mtree_entry *entries)
+{
+	mtree_entry *next;
+
+	while (entries != NULL) {
+		next = entries->next;
+		mtree_entry_free(entries);
+		entries = next;
+	}
+}
+
+void
+mtree_entry_free_data_items(mtree_entry_data *data)
+{
+
+	free(data->contents);
+	free(data->flags);
+	free(data->gname);
+	free(data->link);
+	free(data->uname);
+	free(data->md5digest);
+	free(data->rmd160digest);
+	free(data->sha1digest);
+	free(data->sha256digest);
+	free(data->sha384digest);
+	free(data->sha512digest);
 }
 
 static void
