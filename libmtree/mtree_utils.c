@@ -36,40 +36,6 @@
 #include "mtree.h"
 #include "mtree_private.h"
 
-const mtree_keyword_map mtree_keywords[] = {
-	{ "cksum", 		MTREE_KEYWORD_CKSUM },
-	{ "contents", 		MTREE_KEYWORD_CONTENTS },
-	{ "flags", 		MTREE_KEYWORD_FLAGS },
-	{ "gid", 		MTREE_KEYWORD_GID },
-	{ "gname", 		MTREE_KEYWORD_GNAME },
-	{ "ignore", 		MTREE_KEYWORD_IGNORE },
-	{ "inode", 		MTREE_KEYWORD_INODE },
-	{ "link", 		MTREE_KEYWORD_LINK },
-	{ "md5", 		MTREE_KEYWORD_MD5 },
-	{ "md5digest", 		MTREE_KEYWORD_MD5DIGEST },
-	{ "mode", 		MTREE_KEYWORD_MODE },
-	{ "nlink", 		MTREE_KEYWORD_NLINK },
-	{ "nochange", 		MTREE_KEYWORD_NOCHANGE },
-	{ "optional", 		MTREE_KEYWORD_OPTIONAL },
-	{ "ripemd160digest", 	MTREE_KEYWORD_RIPEMD160DIGEST },
-	{ "rmd160", 		MTREE_KEYWORD_RMD160 },
-	{ "rmd160digest", 	MTREE_KEYWORD_RMD160DIGEST },
-	{ "sha1", 		MTREE_KEYWORD_SHA1 },
-	{ "sha1digest", 	MTREE_KEYWORD_SHA1DIGEST },
-	{ "sha256", 		MTREE_KEYWORD_SHA256 },
-	{ "sha256digest", 	MTREE_KEYWORD_SHA256DIGEST },
-	{ "sha384", 		MTREE_KEYWORD_SHA384 },
-	{ "sha384digest", 	MTREE_KEYWORD_SHA384DIGEST },
-	{ "sha512", 		MTREE_KEYWORD_SHA512 },
-	{ "sha512digest", 	MTREE_KEYWORD_SHA512DIGEST },
-	{ "size", 		MTREE_KEYWORD_SIZE },
-	{ "time", 		MTREE_KEYWORD_TIME },
-	{ "type", 		MTREE_KEYWORD_TYPE },
-	{ "uid", 		MTREE_KEYWORD_UID },
-	{ "uname", 		MTREE_KEYWORD_UNAME },
-	{ NULL, -1 }
-};
-
 long
 mtree_str_to_keyword(const char *s)
 {

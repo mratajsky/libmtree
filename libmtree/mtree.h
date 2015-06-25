@@ -31,7 +31,21 @@ typedef struct _mtree_spec  mtree_spec;
 typedef struct _mtree_entry mtree_entry;
 
 /*
- * mtree entry fields
+ * Spec entry types
+ */
+typedef enum {
+	MTREE_ENTRY_UNKNOWN,
+	MTREE_ENTRY_FILE,
+	MTREE_ENTRY_DIR,
+	MTREE_ENTRY_LINK,
+	MTREE_ENTRY_BLOCK,
+	MTREE_ENTRY_CHAR,
+	MTREE_ENTRY_FIFO,
+	MTREE_ENTRY_SOCKET
+} mtree_entry_type;
+
+/*
+ * Spec entry keywords
  */
 #define MTREE_KEYWORD_CKSUM		0x00000001
 #define MTREE_KEYWORD_CONTENTS		0x00000002
@@ -78,5 +92,9 @@ mtree_entry 	*mtree_entry_first(mtree_entry *entry);
 mtree_entry 	*mtree_entry_last(mtree_entry *entry);
 mtree_entry 	*mtree_entry_previous(mtree_entry *entry);
 mtree_entry 	*mtree_entry_next(mtree_entry *entry);
+
+mtree_entry_type mtree_parse_type(const char *type);
+long		 mtree_parse_keyword(const char *keyword);
+const char	*mtree_type_string(mtree_entry_type type);
 
 #endif /* !_LIBMTREE_MTREE_H_ */
