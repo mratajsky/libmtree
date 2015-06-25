@@ -2,6 +2,7 @@ lib_LTLIBRARIES = libmtree.la
 
 AM_CPPFLAGS =					\
 	-I$(top_srcdir)				\
+	-I$(top_srcdir)/compat			\
 	-I$(top_srcdir)/libmtree
 
 libmtree_includedir = $(includedir)/libmtree
@@ -18,6 +19,8 @@ libmtree_la_SOURCES =				\
 	mtree_spec.c 				\
 	mtree_utils.c 				\
 	mtree_private.h
+
+libmtree_la_LIBADD = $(top_builddir)/compat/libcompat.la
 
 libmtree_la_LDFLAGS =				\
 	-version-info $(LT_VERSION)		\
