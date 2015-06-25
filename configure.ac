@@ -77,7 +77,40 @@ PKG_PROG_PKG_CONFIG
 # =======================================================================
 # Portability checks
 # =======================================================================
+AC_CHECK_HEADERS([netdb.h])
+AC_CHECK_HEADERS([sys/cdefs.h])
+
+# Required by compat
+AC_CHECK_FUNCS([getline])
+
+# Provided by compat
+AC_CHECK_FUNCS([fgetln])
+
+# Use platform's fparseln if possible, FreeBSD has it in libutil
+AC_SEARCH_LIBS([fparseln], [util], [
+    AC_DEFINE([HAVE_FPARSELN], [1],
+              [Define to 1 if you have the fparseln function])
+    if test "$ac_cv_search_fparseln" = "-lutil"; then
+        AC_DEFINE(HAVE_FPARSELN_IN_LIBUTIL, [1],
+                  [Define to 1 if you have the fparseln function in libutil])
+    fi])
+
+# Some systems don't have st_mtim or st_flags
+AC_CHECK_MEMBERS([struct stat.st_mtim, struct stat.st_mtime])
+AC_CHECK_MEMBERS([struct stat.st_flags])
+
+# BSD only
+AC_CHECK_FUNCS([pwcache_userdb pwcache_groupdb])
 AC_CHECK_FUNCS([fflagstostr strtofflags])
+
+# Digests
+AC_CHECK_LIB(md, MD5Init)
+
+# FreeBSD has:
+#  md5.h sha.h sha256.h sha512.h ripemd.h (lacks sha384)
+# NetBSD/OpenBSD have:
+#  md5.h sha1.h sha2.h rmd160.h
+AC_CHECK_HEADERS([md5.h sha.h sha1.h sha2.h sha256.h sha512.h ripemd.h rmd160.h])
 
 # =======================================================================
 # Compiler options
@@ -88,6 +121,7 @@ AC_SUBST(CFLAGS)
 # =======================================================================
 AC_CONFIG_FILES([
     Makefile
+    compat/Makefile
     libmtree/Makefile
     mtree/Makefile
     data/Makefile
