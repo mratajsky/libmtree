@@ -33,6 +33,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "mtree.h"
 #include "mtree_file.h"
@@ -486,7 +487,7 @@ copy_keyword(mtree_entry_data *data, mtree_entry_data *from, long keyword)
 		mtree_copy_string(&data->md5digest, from->md5digest);
 		break;
 	case MTREE_KEYWORD_MODE:
-		data->type = from->type;
+		data->st_mode = from->st_mode & MTREE_ENTRY_MODE_MASK;
 		break;
 	case MTREE_KEYWORD_NLINK:
 		data->st_nlink = from->st_nlink;

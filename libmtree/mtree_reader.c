@@ -218,9 +218,6 @@ read_mtree_keywords(mtree_reader *r, const char *s, mtree_entry_data *data, bool
 	char *value, *p;
 	intmax_t num;
 	long keyword;
-#ifdef HAVE_STRTOFFLAGS
-	u_long flset, flclr;
-#endif
 	int err;
 
 	for (;;) {
