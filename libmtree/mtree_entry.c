@@ -319,6 +319,9 @@ mtree_entry_set_keywords(mtree_entry *entry, long keywords, int overwrite)
 		free(entry->data.flags);
 #ifdef HAVE_FFLAGSTOSTR
 		entry->data.flags = fflagstostr(st.st_flags);
+		if (entry->data.flags != NULL &&
+		    entry->data.flags[0] == '\0')
+			mtree_copy_string(&entry->data.flags, "none");
 #else
 		entry->data.flags = NULL;
 #endif
