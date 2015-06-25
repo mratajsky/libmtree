@@ -104,6 +104,12 @@ struct _mtree_writer {
 	writer_func	 writer;
 };
 
+struct _mtree_spec_diff {
+	mtree_entry	*s1only;
+	mtree_entry	*s2only;
+	mtree_entry	*diff;
+};
+
 struct _mtree_spec {
 	mtree_entry 	*entries;
 	mtree_reader 	*reader;
@@ -125,13 +131,19 @@ mtree_entry	*mtree_entry_create_from_ftsent(FTSENT *ftsent, long keywords);
 void		 mtree_entry_free(mtree_entry *entry);
 void		 mtree_entry_free_all(mtree_entry *entries);
 void		 mtree_entry_free_data_items(mtree_entry_data *data);
+mtree_entry	*mtree_entry_copy(mtree_entry *entry);
+mtree_entry	*mtree_entry_copy_all(mtree_entry *entry);
 void		 mtree_entry_copy_missing_keywords(mtree_entry *entry, mtree_entry_data *from);
+int		 mtree_entry_compare(mtree_entry *entry1, mtree_entry *entry2,
+		    long *diff);
 int		 mtree_entry_compare_keyword(mtree_entry *entry1, mtree_entry *entry2,
 		    long keyword);
 int		 mtree_entry_data_compare_keyword(mtree_entry_data *data1, mtree_entry_data *data2,
 		    long keyword);
 mtree_entry 	*mtree_entry_prepend(mtree_entry *entry, mtree_entry *child);
 mtree_entry 	*mtree_entry_append(mtree_entry *entry, mtree_entry *child);
+mtree_entry	*mtree_entry_reverse(mtree_entry *entry);
+mtree_entry	*mtree_entry_unlink(mtree_entry *head, mtree_entry *entry);
 
 /* mtree_crc.c */
 int 		 mtree_crc(int fd, uint32_t *crc_val, uint32_t *crc_total);

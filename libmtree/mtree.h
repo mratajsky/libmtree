@@ -27,8 +27,9 @@
 #ifndef _LIBMTREE_MTREE_H_
 #define _LIBMTREE_MTREE_H_
 
-typedef struct _mtree_spec  mtree_spec;
-typedef struct _mtree_entry mtree_entry;
+typedef struct _mtree_entry	mtree_entry;
+typedef struct _mtree_spec	mtree_spec;
+typedef struct _mtree_spec_diff	mtree_spec_diff;
 
 /*
  * Spec entry types
@@ -192,12 +193,19 @@ void		 mtree_spec_set_read_keywords(mtree_spec *spec, long keywords);
 void		 mtree_spec_set_write_format(mtree_spec *spec, mtree_format format);
 void		 mtree_spec_set_write_options(mtree_spec *spec, int options);
 
+mtree_spec_diff *mtree_spec_diff_create(mtree_spec *spec1, mtree_spec *spec2);
+void		 mtree_spec_diff_free(mtree_spec_diff *sd);
+mtree_entry	*mtree_spec_diff_get_spec1_only(mtree_spec_diff *sd);
+mtree_entry	*mtree_spec_diff_get_spec2_only(mtree_spec_diff *sd);
+mtree_entry	*mtree_spec_diff_get_different(mtree_spec_diff *sd);
+
 void		 mtree_entry_set_keywords(mtree_entry *entry, long keywords,
 		    int overwrite);
 mtree_entry	*mtree_entry_first(mtree_entry *entry);
 mtree_entry	*mtree_entry_last(mtree_entry *entry);
 mtree_entry	*mtree_entry_previous(mtree_entry *entry);
 mtree_entry	*mtree_entry_next(mtree_entry *entry);
+mtree_entry 	*mtree_entry_find_path(mtree_entry *entry, const char *path);
 
 mtree_entry_type mtree_parse_type(const char *type);
 long		 mtree_parse_keyword(const char *keyword);

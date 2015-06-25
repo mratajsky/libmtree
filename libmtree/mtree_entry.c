@@ -224,6 +224,58 @@ compare_keyword(mtree_entry_data *data1, mtree_entry_data *data2, long keyword)
 }
 
 int
+mtree_entry_compare(mtree_entry *entry1, mtree_entry *entry2, long *diff)
+{
+	long differ;
+	int ret;
+	int i;
+
+	assert(entry1 != NULL);
+	assert(entry2 != NULL);
+
+	/*
+	 * Compare paths
+	 */
+	if (entry1->path != NULL && entry2->path != NULL) {
+		ret = strcmp(entry1->path, entry2->path);
+		if (ret != 0)
+			return (ret);
+	} else if (entry1->path != entry2->path) {
+		/* One path is NULL */
+		return (entry1->path == NULL ? -1 : 1);
+	}
+
+	/*
+	 * Compare keywords, only the keywords that are present in both
+	 * specs are compared
+	 */
+	differ = 0;
+	for (i = 0; mtree_keywords[i].name != NULL; i++) {
+		if ((entry1->data.keywords & mtree_keywords[i].keyword) == 0 ||
+		    (entry2->data.keywords & mtree_keywords[i].keyword) == 0)
+			continue;
+
+		ret = compare_keyword(&entry1->data, &entry2->data,
+		    mtree_keywords[i].keyword);
+		if (ret != 0) {
+			/*
+			 * Build up a list of keywords with different values,
+			 * but only when the user is interested
+			 */
+			if (diff == NULL)
+				return (ret);
+			differ |= mtree_keywords[i].keyword;
+		}
+	}
+
+	if (differ) {
+		*diff = differ;
+		return (1);
+	}
+	return (0);
+}
+
+int
 mtree_entry_compare_keyword(mtree_entry *entry1, mtree_entry *entry2, long keyword)
 {
 
@@ -490,6 +542,43 @@ copy_keyword(mtree_entry_data *data, mtree_entry_data *from, long keyword)
 	data->keywords |= keyword;
 }
 
+mtree_entry *
+mtree_entry_copy(mtree_entry *entry)
+{
+	mtree_entry *copy;
+	int i;
+
+	assert(entry != NULL);
+
+	copy = mtree_entry_create();
+	if (entry->path != NULL)
+		copy->path = strdup(entry->path);
+	if (entry->name != NULL)
+		copy->name = strdup(entry->name);
+
+	for (i = 0; mtree_keywords[i].name != NULL; i++) {
+		if ((entry->data.keywords & mtree_keywords[i].keyword) == 0)
+			continue;
+		copy_keyword(&copy->data, &entry->data,
+		    mtree_keywords[i].keyword);
+	}
+	copy->data.keywords = entry->data.keywords;
+	return (copy);
+}
+
+mtree_entry *
+mtree_entry_copy_all(mtree_entry *entry)
+{
+	mtree_entry *entries;
+
+	entries = NULL;
+	while (entry != NULL) {
+		entries = mtree_entry_prepend(entries, mtree_entry_copy(entry));
+		entry = entry->next;
+	}
+	return (entries);
+}
+
 void
 mtree_entry_copy_missing_keywords(mtree_entry *entry, mtree_entry_data *from)
 {
@@ -550,6 +639,22 @@ mtree_entry_next(mtree_entry *entry)
 }
 
 mtree_entry *
+mtree_entry_find_path(mtree_entry *entry, const char *path)
+{
+
+	assert(entry != NULL);
+	assert(path != NULL);
+
+	while (entry != NULL) {
+		if (strcmp(entry->path, path) == 0)
+			return (entry);
+
+		entry = entry->next;
+	}
+	return (NULL);
+}
+
+mtree_entry *
 mtree_entry_prepend(mtree_entry *entry, mtree_entry *child)
 {
 
@@ -580,4 +685,38 @@ mtree_entry_append(mtree_entry *entry, mtree_entry *child)
 		entry = child;
 	}
 	return (entry);
+}
+
+mtree_entry *
+mtree_entry_reverse(mtree_entry *entry)
+{
+	mtree_entry *last;
+
+	last = NULL;
+	while (entry != NULL) {
+		last = entry;
+		entry = last->next;
+		last->next = last->prev;
+		last->prev = entry;
+	}
+	return (last);
+}
+
+mtree_entry *
+mtree_entry_unlink(mtree_entry *head, mtree_entry *entry)
+{
+
+	assert(head != NULL);
+	assert(entry != NULL);
+
+	if (entry->next != NULL)
+		entry->next->prev = entry->prev;
+	if (entry->prev != NULL)
+		entry->prev->next = entry->next;
+	if (entry == head)
+		head = head->next;
+
+	entry->prev = entry->next = NULL;
+
+	return (head);
 }

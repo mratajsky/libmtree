@@ -17,6 +17,7 @@ libmtree_la_SOURCES =				\
 	mtree_entry.c				\
 	mtree_reader.c 				\
 	mtree_spec.c 				\
+	mtree_spec_diff.c 			\
 	mtree_utils.c 				\
 	mtree_writer.c 				\
 	mtree_private.h

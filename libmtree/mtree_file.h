@@ -39,4 +39,7 @@ int	 mtree_spec_read_fd(mtree_spec *spec, int fd);
 int	 mtree_spec_write_file(mtree_spec *spec, FILE *fp);
 int	 mtree_spec_write_fd(mtree_spec *spec, int fd);
 
+int	 mtree_spec_diff_write_file(mtree_spec_diff *sd, FILE *fp);
+int	 mtree_spec_diff_write_fd(mtree_spec_diff *sd, int fd);
+
 #endif /* !_LIBMTREE_MTREE_FILE_H_ */
