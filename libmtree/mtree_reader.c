@@ -24,9 +24,12 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <libgen.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -35,8 +38,6 @@
 
 #include "mtree.h"
 #include "mtree_private.h"
-
-#define MAX_LINE_LENGTH 	1024
 
 #define	IS_DOT(nm)		((nm)[0] == '.' && (nm)[1] == '\0')
 #define	IS_DOTDOT(nm)		((nm)[0] == '.' && (nm)[1] == '.' && (nm)[2] == '\0')
@@ -74,6 +75,7 @@ mtree_reader_reset(mtree_reader *r)
 	}
 	mtree_entry_free_data_items(&r->defaults);
 
+	memset(&r->defaults, 0, sizeof(r->defaults));
 	r->entries = NULL;
 	r->parent = NULL;
 	r->buflen = 0;
@@ -164,6 +166,16 @@ read_word(const char *s, char *buf, int bufsz)
 			if (esc)
 				c = '\v';
 			break;
+		default:
+			/*
+			 * Unknown escape sequence, most likely file path
+			 * encoded by vis(3), leave it as it is
+			 */
+			if (esc) {
+				c = '\\';
+				sidx--;
+			}
+			break;
 		}
 
 		if (!done) {
@@ -200,13 +212,12 @@ read_number(const char *tok, u_int base, intmax_t *res, intmax_t min,
 }
 
 static int
-read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
+read_mtree_keywords(mtree_reader *r, const char *s, mtree_entry_data *data, bool set)
 {
 	char word[MAX_LINE_LENGTH];
 	char *value, *p;
 	intmax_t num;
 	long keyword;
-	int32_t type;
 #ifdef HAVE_STRTOFFLAGS
 	u_long flset, flclr;
 #endif
@@ -224,16 +235,17 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 		if (value != NULL)
 			*value++ = '\0';
 
-		keyword = mtree_str_to_keyword(word);
+		keyword = mtree_parse_keyword(word);
 		if (keyword == -1)
 			continue;
-		if (set == false) {
-			/* Unset a field */
+
+		if (set == false || (r->keywords & keyword) == 0) {
+			/* Unset a keyword */
 			data->keywords &= ~keyword;
 			continue;
 		}
 
-		/* Set a field... */
+		/* Set a keyword... */
 		err = 0;
 
 		/*
@@ -261,20 +273,13 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			}
 			mtree_copy_string(&data->contents, value);
 			break;
-#ifdef HAVE_STRTOFFLAGS
 		case MTREE_KEYWORD_FLAGS:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
 			}
-			flset = flclr = 0;
-			if (strtofflags(&value, &flset, &flclr) == 0) {
-				data->stat.st_flags &= ~flclr;
-				data->stat.st_flags |= flset;
-			} else
-				err = errno;
+			mtree_copy_string(&data->flags, value);
 			break;
-#endif
 		case MTREE_KEYWORD_GID:
 			if (value == NULL) {
 				err = EINVAL;
@@ -282,7 +287,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			}
 			err = read_number(value, 10, &num, 0, UINT_MAX);
 			if (err == 0)
-				data->stat.st_gid = (gid_t) num;
+				data->st_gid = (gid_t) num;
 			break;
 		case MTREE_KEYWORD_GNAME:
 			if (value == NULL) {
@@ -301,7 +306,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			}
 			err = read_number(value, 10, &num, 0, UINT_MAX);
 			if (err == 0)
-				data->stat.st_ino = (ino_t) num;
+				data->st_ino = (ino_t) num;
 			break;
 		case MTREE_KEYWORD_LINK:
 			if (value == NULL) {
@@ -322,14 +327,11 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			if (value[0] >= '0' && value[0] <= '9') {
 				err = read_number(value, 8, &num,
 				    0, 07777);
-				if (!err) {
-					data->stat.st_mode &= S_IFMT;
-					data->stat.st_mode |= num;
-				}
+				if (!err)
+					data->st_mode = num;
 			} else {
 				/* Symbolic mode not supported. */
 				err = EINVAL;
-				break;
 			}
 			break;
 		case MTREE_KEYWORD_NLINK:
@@ -339,7 +341,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			}
 			err = read_number(value, 10, &num, 0, INTMAX_MAX);
 			if (!err)
-				data->stat.st_nlink = (nlink_t) num;
+				data->st_nlink = (nlink_t) num;
 			break;
 		case MTREE_KEYWORD_NOCHANGE:
 			/* No value */
@@ -375,7 +377,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			}
 			err = read_number(value, 10, &num, 0, INTMAX_MAX);
 			if (!err)
-				data->stat.st_size = num;
+				data->st_size = num;
 			break;
 		case MTREE_KEYWORD_TIME:
 			if (value == NULL) {
@@ -390,7 +392,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			err = read_number(value, 10, &num, 0, INTMAX_MAX);
 			if (err)
 				break;
-			data->stat.st_mtim.tv_sec = num;
+			data->st_mtim.tv_sec = num;
 			if (p == NULL)
 				break;
 
@@ -398,19 +400,14 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			err = read_number(p, 10, &num, 0, INTMAX_MAX);
 			if (err)
 				break;
-			data->stat.st_mtim.tv_nsec = num;
+			data->st_mtim.tv_nsec = num;
 			break;
 		case MTREE_KEYWORD_TYPE:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
 			}
-			type = mtree_str_to_type(value);
-			if (type != -1) {
-				data->stat.st_mode &= ~S_IFMT;
-				data->stat.st_mode |= type;
-			} else
-				err = EINVAL;
+			data->type = mtree_parse_type(value);
 			break;
 		case MTREE_KEYWORD_UID:
 			if (value == NULL) {
@@ -419,7 +416,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			}
 			err = read_number(value, 10, &num, 0, UINT_MAX);
 			if (err == 0)
-				data->stat.st_uid = (uid_t) num;
+				data->st_uid = (uid_t) num;
 			break;
 		case MTREE_KEYWORD_UNAME:
 			if (value == NULL) {
@@ -451,31 +448,57 @@ read_mtree_command(mtree_reader *r, const char *s)
 		return (ret);
 
 	if (!strcmp(cmd, "/set"))
-		ret = read_mtree_keywords(s + ret, &r->defaults, true);
+		ret = read_mtree_keywords(r, s + ret, &r->defaults, true);
 	else if (!strcmp(cmd, "/unset"))
-		ret = read_mtree_keywords(s + ret, &r->defaults, false);
+		ret = read_mtree_keywords(r, s + ret, &r->defaults, false);
 	else
 		ret = 0;
 
 	return (ret);
 }
 
-#define ENTRY_IS_DIR(entry)	(S_ISDIR((entry)->data.stat.st_mode))
-#define ENTRY_IS_FILE(entry)	(S_ISREG((entry)->data.stat.st_mode))
+static char *
+create_path(mtree_entry *entry)
+{
+	char buf[MAX_LINE_LENGTH];
+	size_t len;
+	size_t total;
+
+	total = 0;
+	while (entry != NULL) {
+		len = strlen(entry->name);
+		if ((total + len + 1) >= sizeof(buf)) {
+			errno = ENOBUFS;
+			return (NULL);
+		}
+		memmove(buf + 1 + len, buf, total);
+		memmove(buf + 1, entry->name, len);
+		buf[0] = '/';
+
+		total += len + 1;
+		entry = entry->parent;
+	}
+
+	buf[total] = '\0';
+
+	/* Skip the leading slash */
+	return (strndup(buf + 1, total - 1));
+}
 
 static int
 read_mtree_spec(mtree_reader *r, const char *s)
 {
 	mtree_entry *entry;
-	char path[MAX_LINE_LENGTH];
+	char word[MAXPATHLEN];
+	char name[MAXPATHLEN];
 	char *p;
 	int ret;
 
-	ret = read_word(s, path, sizeof(path));
+	ret = read_word(s, word, sizeof(word));
 	if (ret < 1)
 		return (ret);
 
-	if (IS_DOTDOT(path)) {
+	if (IS_DOTDOT(word)) {
 		/* Only change the parent, keywords are ignored */
 		if (r->parent == NULL || r->parent->parent == NULL) {
 			errno = EINVAL;
@@ -484,24 +507,60 @@ read_mtree_spec(mtree_reader *r, const char *s)
 		r->parent = r->parent->parent;
 		return (0);
 	} else {
+		if (strunvis(name, word) == -1)
+			return (-1);
+
 		entry = mtree_entry_create();
 		if (entry == NULL)
 			return (-1);
-		ret = read_mtree_keywords(s + ret, &entry->data, true);
+		ret = read_mtree_keywords(r, s + ret, &entry->data, true);
 		if (ret == -1) {
 			mtree_entry_free(entry);
 			return (-1);
 		}
 		mtree_entry_copy_missing_keywords(entry, &r->defaults);
 
-		p = strchr(path, '/');
+		p = strchr(name, '/');
 		if (p != NULL) {
-			/* Relative path */
-		} else {
-			entry->name = strdup(path);
-			entry->parent = r->parent;
+			char *base;
 
-			if (ENTRY_IS_DIR(entry))
+			/*
+			 * If the name contains a slash, it is a relative
+			 * path.
+			 *
+			 * According to the specification, these are valid in
+			 * the mtree-2.0 spec and do not change the working
+			 * directory.
+			 */
+			/*
+			 * XXX: find a reliable way to link it to a parent, which
+			 * might be present in the current spec, another spec
+			 * (when merging) or nowhere. This is a problem when
+			 * writing this as v1, the parent nodes may need to be
+			 * introduced artificially.
+			 * Also, the path should be cleaned up, but probably not
+			 * the way libarchive does it - by stripping leading ../ and
+			 * actually changing the path.
+			 */
+			p = strdup(p);
+			base = basename(p);
+			if (base == NULL) {
+				mtree_entry_free(entry);
+				return (-1);
+			}
+			entry->name = strdup(base);
+			entry->path = strdup(name);
+			free(p);
+		} else {
+			/* Name */
+			entry->name = strdup(name);
+			entry->parent = r->parent;
+			entry->path = create_path(entry);
+			if (entry->path == NULL) {
+				mtree_entry_free(entry);
+				return (-1);
+			}
+			if (entry->data.type == MTREE_ENTRY_DIR)
 				r->parent = entry;
 		}
 
@@ -665,4 +724,22 @@ mtree_reader_finish(mtree_reader *r, mtree_entry **entries)
 
 	mtree_reader_reset(r);
 	return (ret);
+}
+
+void
+mtree_reader_set_options(mtree_reader *r, int options)
+{
+
+	assert(r != NULL);
+
+	r->options = options;
+}
+
+void
+mtree_reader_set_keywords(mtree_reader *r, long keywords)
+{
+
+	assert(r != NULL);
+
+	r->keywords = keywords;
 }

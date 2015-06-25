@@ -78,20 +78,101 @@ typedef enum {
 #define MTREE_KEYWORD_UID		0x10000000
 #define MTREE_KEYWORD_UNAME		0x20000000
 
-mtree_spec      *mtree_spec_create(void);
-void             mtree_spec_free(mtree_spec *spec);
-void             mtree_spec_reset(mtree_spec *spec);
+/*
+ * Reading options
+ */
+#define MTREE_READ_SKIP_FILE		0x01
+#define MTREE_READ_SKIP_DIR		0x02
+#define MTREE_READ_SKIP_LINK		0x04
+#define MTREE_READ_SKIP_BLOCK		0x08
+#define MTREE_READ_SKIP_CHAR		0x10
+#define MTREE_READ_SKIP_FIFO		0x20
+#define MTREE_READ_SKIP_SOCKET		0x40
+#define MTREE_READ_SKIP_ALL		0x7F
+#define MTREE_READ_SKIP_ON_ERROR	0x100
 
-int              mtree_spec_read_data(mtree_spec *spec, const char *data, int len);
-int              mtree_spec_read_data_end(mtree_spec *spec);
+/*
+ * Path reading options
+ */
+#define MTREE_READ_PATH_ABSOLUTE	0x01
+#define MTREE_READ_PATH_DONT_RECURSE	0x04
+#define MTREE_READ_PATH_DONT_CROSS_DEV	0x08
+#define MTREE_READ_PATH_FOLLOW_SYMLINKS	0x10
 
-int              mtree_spec_add_file(mtree_spec *spec, const char *path);
-int              mtree_spec_add_directory(mtree_spec *spec, const char *path);
+/*
+ * Digest types
+ */
+#define MTREE_DIGEST_MD5		0x01
+#define MTREE_DIGEST_RMD160		0x02
+#define MTREE_DIGEST_SHA1		0x04
+#define MTREE_DIGEST_SHA256		0x08
+#define MTREE_DIGEST_SHA384		0x10
+#define MTREE_DIGEST_SHA512		0x20
 
-mtree_entry 	*mtree_entry_first(mtree_entry *entry);
-mtree_entry 	*mtree_entry_last(mtree_entry *entry);
-mtree_entry 	*mtree_entry_previous(mtree_entry *entry);
-mtree_entry 	*mtree_entry_next(mtree_entry *entry);
+#define MTREE_KEYWORD_MASK_ALL		(MTREE_KEYWORD_CKSUM |		\
+					 MTREE_KEYWORD_CONTENTS |	\
+					 MTREE_KEYWORD_FLAGS |		\
+					 MTREE_KEYWORD_GID |		\
+					 MTREE_KEYWORD_GNAME |		\
+					 MTREE_KEYWORD_IGNORE |		\
+					 MTREE_KEYWORD_INODE |		\
+					 MTREE_KEYWORD_LINK |		\
+					 MTREE_KEYWORD_MASK_MD5 |	\
+					 MTREE_KEYWORD_MODE |		\
+					 MTREE_KEYWORD_NLINK |		\
+					 MTREE_KEYWORD_NOCHANGE |	\
+					 MTREE_KEYWORD_OPTIONAL |	\
+					 MTREE_KEYWORD_MASK_RMD160 |	\
+					 MTREE_KEYWORD_MASK_SHA1 |	\
+					 MTREE_KEYWORD_MASK_SHA256 |	\
+					 MTREE_KEYWORD_MASK_SHA384 |	\
+					 MTREE_KEYWORD_MASK_SHA512 |	\
+					 MTREE_KEYWORD_SIZE |		\
+					 MTREE_KEYWORD_TIME |		\
+					 MTREE_KEYWORD_TYPE |		\
+					 MTREE_KEYWORD_UID |		\
+					 MTREE_KEYWORD_UNAME)
+
+#define MTREE_KEYWORD_MASK_DEFAULT	(MTREE_KEYWORD_FLAGS |		\
+					 MTREE_KEYWORD_GID |		\
+					 MTREE_KEYWORD_LINK |		\
+					 MTREE_KEYWORD_MODE |		\
+					 MTREE_KEYWORD_NLINK |		\
+					 MTREE_KEYWORD_SIZE |		\
+					 MTREE_KEYWORD_TIME |		\
+					 MTREE_KEYWORD_TYPE |		\
+					 MTREE_KEYWORD_UID)
+
+#define MTREE_KEYWORD_MASK_MD5		(MTREE_KEYWORD_MD5 |		\
+					 MTREE_KEYWORD_MD5DIGEST)
+#define MTREE_KEYWORD_MASK_SHA1		(MTREE_KEYWORD_SHA1 |		\
+					 MTREE_KEYWORD_SHA1DIGEST)
+#define MTREE_KEYWORD_MASK_SHA256	(MTREE_KEYWORD_SHA256 |		\
+					 MTREE_KEYWORD_SHA256DIGEST)
+#define MTREE_KEYWORD_MASK_SHA384	(MTREE_KEYWORD_SHA384 |		\
+					 MTREE_KEYWORD_SHA384DIGEST)
+#define MTREE_KEYWORD_MASK_SHA512	(MTREE_KEYWORD_SHA512 |		\
+					 MTREE_KEYWORD_SHA512DIGEST)
+#define MTREE_KEYWORD_MASK_RMD160	(MTREE_KEYWORD_RMD160 |		\
+					 MTREE_KEYWORD_RMD160DIGEST |	\
+					 MTREE_KEYWORD_RIPEMD160DIGEST)
+
+mtree_spec	*mtree_spec_create(void);
+void		 mtree_spec_free(mtree_spec *spec);
+void		 mtree_spec_reset(mtree_spec *spec);
+mtree_entry	*mtree_spec_get_entries(mtree_spec *spec);
+int		 mtree_spec_read_data(mtree_spec *spec, const char *data, int len);
+int		 mtree_spec_read_data_end(mtree_spec *spec);
+int		 mtree_spec_read_path(mtree_spec *spec, const char *path);
+void		 mtree_spec_set_read_options(mtree_spec *spec, int options);
+void		 mtree_spec_set_read_keywords(mtree_spec *spec, long keywords);
+
+void		 mtree_entry_set_keywords(mtree_entry *entry, long keywords,
+		    int overwrite);
+mtree_entry	*mtree_entry_first(mtree_entry *entry);
+mtree_entry	*mtree_entry_last(mtree_entry *entry);
+mtree_entry	*mtree_entry_previous(mtree_entry *entry);
+mtree_entry	*mtree_entry_next(mtree_entry *entry);
 
 mtree_entry_type mtree_parse_type(const char *type);
 long		 mtree_parse_keyword(const char *keyword);

@@ -32,11 +32,18 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "mtree.h"
 #include "mtree_file.h"
 #include "mtree_private.h"
+
+#ifdef __FreeBSD__
+# define FTS_CONST const
+#else
+# define FTS_CONST
+#endif
 
 mtree_spec *
 mtree_spec_create(void)
@@ -44,8 +51,10 @@ mtree_spec_create(void)
 	mtree_spec *spec;
 
 	spec = calloc(1, sizeof(mtree_spec));
+
 	spec->reader = mtree_reader_create();
 
+	mtree_spec_set_read_keywords(spec, MTREE_KEYWORD_MASK_DEFAULT);
 	return (spec);
 }
 
@@ -72,19 +81,14 @@ mtree_spec_reset(mtree_spec *spec)
 }
 
 int
-mtree_spec_read_file(mtree_spec *spec, const char *file)
+mtree_spec_read_file(mtree_spec *spec, FILE *fp)
 {
 	mtree_entry *entries;
-	FILE *fp;
 	char buf[512];
 	int ret;
 
 	assert(spec != NULL);
-	assert(file != NULL);
-
-	fp = fopen(file, "r");
-	if (fp == NULL)
-		return (-1);
+	assert(fp != NULL);
 
 	ret = 0;
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
@@ -94,23 +98,9 @@ mtree_spec_read_file(mtree_spec *spec, const char *file)
 	}
 
 	if (ret == 0) {
-		/* If there is no newline at the end of the file, the last
-		 * line is still in the buffer */
-		if (ferror(fp))
-			ret = -1;
-		else
-			ret = mtree_reader_finish(spec->reader, &entries);
-	}
-
-	if (ret == 0) {
-		spec->entries = mtree_entry_append(spec->entries, entries);
-		fclose(fp);
-	} else {
-		int err;
-
-		err = errno;
-		fclose(fp);
-		errno = err;
+		ret = mtree_reader_finish(spec->reader, &entries);
+		if (ret == 0)
+			spec->entries = mtree_entry_append(spec->entries, entries);
 	}
 	return (ret);
 }
@@ -124,6 +114,7 @@ mtree_spec_read_fd(mtree_spec * spec, int fd)
 	int ret;
 
 	assert(spec != NULL);
+	assert(fd != -1);
 
 	ret = 0;
 	for (;;) {
@@ -172,30 +163,29 @@ mtree_spec_read_data_end(mtree_spec *spec)
 	return (ret);
 }
 
-int
-mtree_spec_add_file(mtree_spec *spec, const char *path)
+static int
+ftsentcmp(const FTSENT * FTS_CONST *a, const FTSENT * FTS_CONST *b)
 {
-	mtree_entry *entry;
 
-	assert (spec != NULL);
-	assert (path != NULL);
-
-	entry = mtree_entry_create_from_file (path);
-	if (entry == NULL)
+	if (S_ISDIR((*a)->fts_statp->st_mode)) {
+		if (!S_ISDIR((*b)->fts_statp->st_mode))
+			return (1);
+	} else if (S_ISDIR((*b)->fts_statp->st_mode))
 		return (-1);
 
-	spec->entries = mtree_entry_append(spec->entries, entry);
-	return (0);
+	return (strcmp((*a)->fts_name, (*b)->fts_name));
 }
 
 int
-mtree_spec_add_directory(mtree_spec *spec, const char *path)
+mtree_spec_read_path(mtree_spec *spec, const char *path)
 {
 	FTS *fts;
 	FTSENT *ftsent;
 	mtree_entry *first, *entry;
-	char *argv[2];
+	mtree_entry *parent;
 	struct stat st;
+	char *argv[2];
+	int ftsoptions;
 	int ret;
 
 	assert (spec != NULL);
@@ -209,14 +199,29 @@ mtree_spec_add_directory(mtree_spec *spec, const char *path)
 		return (-1);
 	}
 
-	argv[0] = (char *) path;
+	ftsoptions = FTS_NOCHDIR;
+	if (spec->read_options & MTREE_READ_PATH_FOLLOW_SYMLINKS)
+		ftsoptions |= FTS_LOGICAL;
+	else
+		ftsoptions |= FTS_PHYSICAL;
+	if (spec->read_options & MTREE_READ_PATH_DONT_CROSS_DEV)
+		ftsoptions |= FTS_XDEV;
+
 	argv[1] = NULL;
-	fts = fts_open(argv, FTS_PHYSICAL, NULL);
+	if (spec->read_options & MTREE_READ_PATH_ABSOLUTE)
+		argv[0] = (char *) path;
+	else {
+		if (chdir(path) == -1)
+			return (-1);
+		argv[0] = ".";
+	}
+	fts = fts_open(argv, ftsoptions, ftsentcmp);
 	if (fts == NULL)
 		return (-1);
 
-	first = NULL;
-	ret = 0;
+	first  = NULL;
+	parent = NULL;
+	ret    = 0;
 	while (ret == 0) {
 		ftsent = fts_read(fts);
 		if (ftsent == NULL)
@@ -226,25 +231,38 @@ mtree_spec_add_directory(mtree_spec *spec, const char *path)
 		case FTS_DNR:
 		case FTS_ERR:
 		case FTS_NS:
-			errno = ftsent->fts_errno;
-			ret = -1;
+			/* Error */
+			if ((spec->read_options & MTREE_READ_SKIP_ON_ERROR) == 0) {
+				errno = ftsent->fts_errno;
+				ret = -1;
+			}
 			break;
 		case FTS_DP:
-		case FTS_DC:
+			/* Leaving a directory */
+			parent = parent->parent;
+			break;
 		case FTS_DOT:
 			break;
 		default:
-			entry = mtree_entry_create_from_ftsent(ftsent);
+			entry = mtree_entry_create_from_ftsent(ftsent,
+			    spec->read_keywords);
 			if (entry == NULL) {
 				ret = -1;
 				break;
+			}
+			entry->parent = parent;
+
+			if (ftsent->fts_info == FTS_D) {
+				if (spec->read_options & MTREE_READ_PATH_DONT_RECURSE &&
+				    ftsent->fts_level > 0)
+					fts_set(fts, ftsent, FTS_SKIP);
+				parent = entry;
 			}
 			first = mtree_entry_append(first, entry);
 			break;
 		}
 	}
 
-	// XXX probably add option whether to stop or skip on error
 	if (ret == 0) {
 		spec->entries = mtree_entry_append(spec->entries, first);
 	} else {
@@ -255,4 +273,33 @@ mtree_spec_add_directory(mtree_spec *spec, const char *path)
 		errno = err;
 	}
 	return (ret);
+}
+
+mtree_entry *
+mtree_spec_get_entries(mtree_spec *spec)
+{
+
+	assert(spec != NULL);
+
+	return (spec->entries);
+}
+
+void
+mtree_spec_set_read_options(mtree_spec *spec, int options)
+{
+
+	assert(spec != NULL);
+
+	spec->read_options = options;
+	mtree_reader_set_options(spec->reader, options);
+}
+
+void
+mtree_spec_set_read_keywords(mtree_spec *spec, long keywords)
+{
+
+	assert(spec != NULL);
+
+	spec->read_keywords = keywords;
+	mtree_reader_set_keywords(spec->reader, keywords);
 }

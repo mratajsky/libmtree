@@ -28,10 +28,15 @@
 #include <sys/stat.h>
 
 #include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <grp.h>
+#include <limits.h>
+#include <pwd.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "mtree.h"
 #include "mtree_private.h"
@@ -95,4 +100,45 @@ mtree_copy_string(char **dst, const char *src)
 		return (-1);
 
 	return (0);
+}
+
+char *
+mtree_get_gname(gid_t gid)
+{
+	struct group *grent;
+
+	errno = 0;
+	grent = getgrgid(gid);
+	if (grent != NULL)
+		return (strdup(grent->gr_name));
+
+	return (NULL);
+}
+
+char *
+mtree_get_link(const char *path)
+{
+	char buf[MAXPATHLEN];
+	ssize_t n;
+
+	assert(path != NULL);
+
+	n = readlink(path, buf, sizeof(buf));
+	if (n != -1)
+		return (strndup(buf, n));
+
+	return (NULL);
+}
+
+char *
+mtree_get_uname(uid_t uid)
+{
+	struct passwd *pwent;
+
+	errno = 0;
+	pwent = getpwuid(uid);
+	if (pwent != NULL)
+		return (strdup(pwent->pw_name));
+
+	return (NULL);
 }
