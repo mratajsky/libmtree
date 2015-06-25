@@ -31,7 +31,7 @@
 #include <sys/stat.h>
 
 #include <fts.h>
-#include <stdint.h>
+#include <inttypes.h>
 
 #include "compat.h"
 #include "mtree.h"

@@ -27,6 +27,11 @@
 #ifndef _LIBMTREE_MTREE_H_
 #define _LIBMTREE_MTREE_H_
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#include <inttypes.h>
+
 typedef struct _mtree_entry	mtree_entry;
 typedef struct _mtree_spec	mtree_spec;
 typedef struct _mtree_spec_diff	mtree_spec_diff;
