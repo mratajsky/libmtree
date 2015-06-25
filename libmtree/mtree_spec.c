@@ -53,6 +53,7 @@ mtree_spec_create(void)
 	spec = calloc(1, sizeof(mtree_spec));
 
 	spec->reader = mtree_reader_create();
+	spec->writer = mtree_writer_create();
 
 	mtree_spec_set_read_keywords(spec, MTREE_KEYWORD_MASK_DEFAULT);
 	return (spec);
@@ -65,6 +66,7 @@ mtree_spec_free(mtree_spec * spec)
 	assert(spec != NULL);
 
 	mtree_reader_free(spec->reader);
+	mtree_writer_free(spec->writer);
 	free(spec);
 }
 
@@ -275,6 +277,26 @@ mtree_spec_read_path(mtree_spec *spec, const char *path)
 	return (ret);
 }
 
+int
+mtree_spec_write_file(mtree_spec *spec, FILE *fp)
+{
+
+	assert(spec != NULL);
+	assert(fp != NULL);
+
+	return (mtree_writer_write_file(spec->writer, spec->entries, fp));
+}
+
+int
+mtree_spec_write_fd(mtree_spec *spec, int fd)
+{
+
+	assert(spec != NULL);
+	assert(fd != -1);
+
+	return (mtree_writer_write_fd(spec->writer, spec->entries, fd));
+}
+
 mtree_entry *
 mtree_spec_get_entries(mtree_spec *spec)
 {
@@ -302,4 +324,22 @@ mtree_spec_set_read_keywords(mtree_spec *spec, long keywords)
 
 	spec->read_keywords = keywords;
 	mtree_reader_set_keywords(spec->reader, keywords);
+}
+
+void
+mtree_spec_set_write_format(mtree_spec *spec, mtree_format format)
+{
+
+	assert(spec != NULL);
+
+	mtree_writer_set_format(spec->writer, format);
+}
+
+void
+mtree_spec_set_write_options(mtree_spec *spec, int options)
+{
+
+	assert(spec != NULL);
+
+	mtree_writer_set_options(spec->writer, options);
 }

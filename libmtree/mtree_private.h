@@ -44,6 +44,7 @@
 typedef struct _mtree_entry_data	mtree_entry_data;
 typedef struct _mtree_keyword_map	mtree_keyword_map;
 typedef struct _mtree_reader		mtree_reader;
+typedef struct _mtree_writer		mtree_writer;
 
 struct _mtree_entry_data {
 	mtree_entry_type type;
@@ -89,9 +90,24 @@ struct _mtree_reader {
 	int		 options;
 };
 
+typedef int (*writer_func)(mtree_writer *, const char *);
+struct _mtree_writer {
+	mtree_entry 	*entries;
+	union {
+		FILE	*fp;
+		int	 fd;
+	} dst;
+	mtree_entry_data defaults;
+	mtree_format	 format;
+	int		 options;
+	int		 indent;
+	writer_func	 writer;
+};
+
 struct _mtree_spec {
 	mtree_entry 	*entries;
 	mtree_reader 	*reader;
+	mtree_writer 	*writer;
 	long		 read_keywords;
 	int		 read_options;
 };
@@ -110,6 +126,10 @@ void		 mtree_entry_free(mtree_entry *entry);
 void		 mtree_entry_free_all(mtree_entry *entries);
 void		 mtree_entry_free_data_items(mtree_entry_data *data);
 void		 mtree_entry_copy_missing_keywords(mtree_entry *entry, mtree_entry_data *from);
+int		 mtree_entry_compare_keyword(mtree_entry *entry1, mtree_entry *entry2,
+		    long keyword);
+int		 mtree_entry_data_compare_keyword(mtree_entry_data *data1, mtree_entry_data *data2,
+		    long keyword);
 mtree_entry 	*mtree_entry_prepend(mtree_entry *entry, mtree_entry *child);
 mtree_entry 	*mtree_entry_append(mtree_entry *entry, mtree_entry *child);
 
@@ -125,6 +145,16 @@ int		 mtree_reader_finish(mtree_reader *r, mtree_entry **entries);
 void		 mtree_reader_set_options(mtree_reader *r, int options);
 void		 mtree_reader_set_keywords(mtree_reader *r, long keywords);
 
+/* mtree_writer.c */
+mtree_writer	*mtree_writer_create(void);
+void		 mtree_writer_free(mtree_writer *w);
+int		 mtree_writer_write_file(mtree_writer *w, mtree_entry *entries,
+		    FILE *fp);
+int		 mtree_writer_write_fd(mtree_writer *w, mtree_entry *entries,
+		    int fd);
+void		 mtree_writer_set_format(mtree_writer *w, mtree_format format);
+void		 mtree_writer_set_options(mtree_writer *w, int options);
+
 /* mtree_utils.c */
 long		 mtree_str_to_keyword(const char *s);
 int32_t 	 mtree_str_to_type(const char *s);
@@ -133,5 +163,6 @@ int		 mtree_copy_string(char **dst, const char *src);
 char		*mtree_get_gname(gid_t gid);
 char		*mtree_get_link(const char *path);
 char		*mtree_get_uname(uid_t uid);
+char		*mtree_get_vispath(const char *path);
 
 #endif /* !_LIBMTREE_MTREE_PRIVATE_H_ */

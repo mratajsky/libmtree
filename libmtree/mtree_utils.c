@@ -142,3 +142,23 @@ mtree_get_uname(uid_t uid)
 
 	return (NULL);
 }
+
+/*
+ * strsvis(3) encodes path, which must not be longer than MAXPATHLEN
+ * characters long, and returns a pointer to a static buffer containing
+ * the result
+ */
+char *
+mtree_get_vispath(const char *path)
+{
+	static const char extra[] = {' ', '\t', '\n', '\\', '#', '*', '?', '[', '\0'};
+	char pathbuf[4 * MAXPATHLEN + 1];
+
+	assert(path != NULL);
+
+	// TODO: NetBSD uses VIS_CSTYLE
+	if (strsvis(pathbuf, path, VIS_OCTAL, extra) == -1)
+		return (NULL);
+
+	return (strdup(pathbuf));
+}

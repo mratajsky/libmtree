@@ -18,6 +18,7 @@ libmtree_la_SOURCES =				\
 	mtree_reader.c 				\
 	mtree_spec.c 				\
 	mtree_utils.c 				\
+	mtree_writer.c 				\
 	mtree_private.h
 
 libmtree_la_LIBADD = $(top_builddir)/compat/libcompat.la

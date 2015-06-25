@@ -45,6 +45,19 @@ typedef enum {
 } mtree_entry_type;
 
 /*
+ * Writing format
+ */
+typedef enum {
+	MTREE_FORMAT_DEFAULT,
+	MTREE_FORMAT_1_0,
+	MTREE_FORMAT_2_0,
+	MTREE_FORMAT_2_0_PATH_LAST,
+	MTREE_FORMAT_DIFF_FIRST,
+	MTREE_FORMAT_DIFF_SECOND,
+	MTREE_FORMAT_DIFF_DIFFER
+} mtree_format;
+
+/*
  * Spec entry keywords
  */
 #define MTREE_KEYWORD_CKSUM		0x00000001
@@ -98,6 +111,16 @@ typedef enum {
 #define MTREE_READ_PATH_DONT_RECURSE	0x04
 #define MTREE_READ_PATH_DONT_CROSS_DEV	0x08
 #define MTREE_READ_PATH_FOLLOW_SYMLINKS	0x10
+
+/*
+ * Writing options
+ */
+#define MTREE_WRITE_USE_SET		0x02
+#define MTREE_WRITE_INDENT		0x04
+#define MTREE_WRITE_INDENT_LEVEL	0x08
+#define MTREE_WRITE_SPLIT_LONG_LINES	0x10
+#define MTREE_WRITE_DIR_COMMENTS	0x20
+#define MTREE_WRITE_DIR_BLANK_LINES	0x40
 
 /*
  * Digest types
@@ -166,6 +189,8 @@ int		 mtree_spec_read_data_end(mtree_spec *spec);
 int		 mtree_spec_read_path(mtree_spec *spec, const char *path);
 void		 mtree_spec_set_read_options(mtree_spec *spec, int options);
 void		 mtree_spec_set_read_keywords(mtree_spec *spec, long keywords);
+void		 mtree_spec_set_write_format(mtree_spec *spec, mtree_format format);
+void		 mtree_spec_set_write_options(mtree_spec *spec, int options);
 
 void		 mtree_entry_set_keywords(mtree_entry *entry, long keywords,
 		    int overwrite);

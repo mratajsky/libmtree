@@ -120,6 +120,130 @@ mtree_entry_free_data_items(mtree_entry_data *data)
 	free(data->sha512digest);
 }
 
+static int
+compare_keyword(mtree_entry_data *data1, mtree_entry_data *data2, long keyword)
+{
+
+	if ((data1->keywords & keyword) != (data2->keywords & keyword))
+		return (1);
+	else if ((data1->keywords & keyword) == 0)
+		return (0);
+
+	switch (keyword) {
+	case MTREE_KEYWORD_CKSUM:
+		if (data1->cksum != data2->cksum)
+			return (1);
+		break;
+	case MTREE_KEYWORD_CONTENTS:
+		if (strcmp(data1->contents, data2->contents) != 0)
+			return (1);
+		break;
+	case MTREE_KEYWORD_FLAGS:
+		if (strcmp(data1->flags, data2->flags) != 0)
+			return (1);
+		break;
+	case MTREE_KEYWORD_GID:
+		if (data1->st_gid != data2->st_gid)
+			return (1);
+		break;
+	case MTREE_KEYWORD_GNAME:
+		if (strcmp(data1->gname, data2->gname) != 0)
+			return (1);
+		break;
+	case MTREE_KEYWORD_INODE:
+		if (data1->st_ino != data2->st_ino)
+			return (1);
+		break;
+	case MTREE_KEYWORD_LINK:
+		if (strcmp(data1->link, data2->link) != 0)
+			return (1);
+		break;
+	case MTREE_KEYWORD_MD5:
+	case MTREE_KEYWORD_MD5DIGEST:
+		if (strcmp(data1->md5digest, data2->md5digest) != 0)
+			return (1);
+		break;
+	case MTREE_KEYWORD_MODE:
+		if (data1->st_mode != data2->st_mode)
+			return (1);
+		break;
+	case MTREE_KEYWORD_NLINK:
+		if (data1->st_nlink != data2->st_nlink)
+			return (1);
+		break;
+	case MTREE_KEYWORD_RIPEMD160DIGEST:
+	case MTREE_KEYWORD_RMD160:
+	case MTREE_KEYWORD_RMD160DIGEST:
+		if (strcmp(data1->rmd160digest, data2->rmd160digest) != 0)
+			return (1);
+		break;
+	case MTREE_KEYWORD_SHA1:
+	case MTREE_KEYWORD_SHA1DIGEST:
+		if (strcmp(data1->sha1digest, data2->sha1digest) != 0)
+			return (1);
+		break;
+	case MTREE_KEYWORD_SHA256:
+	case MTREE_KEYWORD_SHA256DIGEST:
+		if (strcmp(data1->sha256digest, data2->sha256digest) != 0)
+			return (1);
+		break;
+	case MTREE_KEYWORD_SHA384:
+	case MTREE_KEYWORD_SHA384DIGEST:
+		if (strcmp(data1->sha384digest, data2->sha384digest) != 0)
+			return (1);
+		break;
+	case MTREE_KEYWORD_SHA512:
+	case MTREE_KEYWORD_SHA512DIGEST:
+		if (strcmp(data1->sha512digest, data2->sha512digest) != 0)
+			return (1);
+		break;
+	case MTREE_KEYWORD_SIZE:
+		if (data1->st_size != data2->st_size)
+			return (1);
+		break;
+	case MTREE_KEYWORD_TIME:
+		if (data1->st_mtim.tv_sec != data2->st_mtim.tv_sec ||
+		    data1->st_mtim.tv_nsec != data2->st_mtim.tv_nsec)
+			return (1);
+		break;
+	case MTREE_KEYWORD_TYPE:
+		if (data1->type != data2->type)
+			return (1);
+		break;
+	case MTREE_KEYWORD_UID:
+		if (data1->st_uid != data2->st_uid)
+			return (1);
+		break;
+	case MTREE_KEYWORD_UNAME:
+		if (strcmp(data1->uname, data2->uname) != 0)
+			return (1);
+		break;
+	}
+
+	return (0);
+}
+
+int
+mtree_entry_compare_keyword(mtree_entry *entry1, mtree_entry *entry2, long keyword)
+{
+
+	assert(entry1 != NULL);
+	assert(entry2 != NULL);
+
+	return compare_keyword(&entry1->data, &entry2->data, keyword);
+}
+
+int
+mtree_entry_data_compare_keyword(mtree_entry_data *data1, mtree_entry_data *data2,
+    long keyword)
+{
+
+	assert(data1 != NULL);
+	assert(data2 != NULL);
+
+	return compare_keyword(data1, data2, keyword);
+}
+
 void
 mtree_entry_set_keywords(mtree_entry *entry, long keywords, int overwrite)
 {
