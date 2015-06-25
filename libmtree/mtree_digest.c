@@ -1,11 +1,6 @@
 /*-
  * Copyright (c) 2015 Michal Ratajsky <michal@FreeBSD.org>
- *
- * Copyright (c) 1991, 1993
- *	The Regents of the University of California.  All rights reserved.
- *
- * This code is derived from software contributed to Berkeley by
- * James W. Williams of NASA Goddard Space Flight Center.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -15,14 +10,11 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -32,11 +24,50 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
+
 #include <sys/types.h>
+#include <sys/stat.h>
 
+#include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <inttypes.h>
 #include <unistd.h>
-#include <stdint.h>
 
+#ifdef HAVE_MD5_H
+#include <md5.h>
+#endif
+
+#ifdef HAVE_SHA_H
+#include <sha.h>
+#else
+#ifdef HAVE_SHA1_H
+#include <sha1.h>
+#endif
+#endif /* HAVE_SHA_H */
+
+#ifdef HAVE_SHA2_H
+#include <sha2.h>
+#else
+#ifdef HAVE_SHA256_H
+#include <sha256.h>
+#endif
+#ifdef HAVE_SHA512_H
+#include <sha512.h>
+#endif
+#endif /* HAVE_SHA2_H */
+
+#ifdef HAVE_RIPEMD_H
+#include <ripemd.h>
+#else
+#ifdef HAVE_RMD160_H
+#include <rmd160.h>
+#endif
+#endif /* HAVE_RIPEMD_H */
+
+#include "mtree.h"
+#include "mtree_file.h"
 #include "mtree_private.h"
 
 static const uint32_t crctab[] = {
@@ -94,24 +125,119 @@ static const uint32_t crctab[] = {
 	0xa2f33668, 0xbcb4666d, 0xb8757bda, 0xb5365d03, 0xb1f740b4
 };
 
+static char *
+digest_file_md5(const char *path)
+{
+#if defined(HAVE_MD5_H)
+	return (MD5File(path, NULL));
+#endif
+	errno = EINVAL;
+	return (NULL);
+}
+
+static char *
+digest_file_rmd160(const char *path)
+{
+#if defined(HAVE_RIPEMD_H)
+	return (RIPEMD160_File(path, NULL));
+#elif defined(HAVE_RMD160_H)
+	return (RMD160File(path, NULL));
+#endif
+	errno = EINVAL;
+	return (NULL);
+}
+
+static char *
+digest_file_sha1(const char *path)
+{
+#if defined(HAVE_SHA_H)
+	return (SHA1_File(path, NULL));
+#elif defined(HAVE_SHA1_H)
+	return (SHA1File(path, NULL));
+#endif
+	errno = EINVAL;
+	return (NULL);
+}
+
+static char *
+digest_file_sha256(const char *path)
+{
+#if defined(HAVE_SHA256_H) || defined(HAVE_SHA2_H)
+	return (SHA256_File(path, NULL));
+#endif
+	errno = EINVAL;
+	return (NULL);
+}
+
+static char *
+digest_file_sha384(const char *path)
+{
+#if defined(HAVE_SHA2_H)
+	return (SHA384_File(path, NULL));
+#endif
+	errno = EINVAL;
+	return (NULL);
+}
+
+static char *
+digest_file_sha512(const char *path)
+{
+#if defined(HAVE_SHA512_H) || defined(HAVE_SHA2_H)
+	return (SHA512_File(path, NULL));
+#endif
+	errno = EINVAL;
+	return (NULL);
+}
+
+char *
+mtree_digest_file(int type, const char *path)
+{
+	char *digest = NULL;
+
+	assert(path != NULL);
+
+	switch (type) {
+	case MTREE_DIGEST_MD5:
+		digest = digest_file_md5(path);
+		break;
+	case MTREE_DIGEST_RMD160:
+		digest = digest_file_rmd160(path);
+		break;
+	case MTREE_DIGEST_SHA1:
+		digest = digest_file_sha1(path);
+		break;
+	case MTREE_DIGEST_SHA256:
+		digest = digest_file_sha256(path);
+		break;
+	case MTREE_DIGEST_SHA384:
+		digest = digest_file_sha384(path);
+		break;
+	case MTREE_DIGEST_SHA512:
+		digest = digest_file_sha512(path);
+		break;
+	}
+
+	return (digest);
+}
+
 /*
  * Compute a POSIX 1003.2 checksum.  This routine has been broken out so that
  * other programs can use it.  It takes a file descriptor to read from and
  * locations to store the crc and the number of bytes read.  It returns 0 on
  * success and 1 on failure.  Errno is set on failure.
  */
-int
-mtree_crc(int fd, uint32_t *crc_val, uint32_t *crc_total)
+static int
+crc32(int fd, uint32_t *crc_val, uint32_t *crc_total)
 {
-	uint8_t *p;
-	int nr;
 	uint32_t thecrc, len;
 	uint32_t crctot;
+	uint8_t *p;
 	uint8_t buf[16 * 1024];
+	int nr;
 
 #define	COMPUTE(var, ch)	(var) = (var) << 8 ^ crctab[(var) >> 24 ^ (ch)]
 
-	thecrc = len = 0;
+	thecrc = crctot = len = 0;
 	if (crc_total)
 		crctot = ~(*crc_total);
 	while ((nr = read(fd, buf, sizeof(buf))) > 0)
@@ -142,5 +268,30 @@ mtree_crc(int fd, uint32_t *crc_val, uint32_t *crc_total)
 	if (crc_total)
 		*crc_total = ~crctot;
 
+	return (0);
+#undef COMPUTE
+}
+
+// XXX provide buffer functions, see if this can be unified with
+// the other digests
+int
+mtree_digest_file_crc32(const char *path, uint32_t *crc, uint32_t *crc_total)
+{
+	int fd;
+
+	assert(path != NULL);
+	assert(crc != NULL);
+
+	fd = open(path, O_RDONLY);
+	if (fd == -1)
+		return (-1);
+
+	if (crc32(fd, crc, crc_total) != 0) {
+		int err = errno;
+
+		close(fd);
+		errno = err;
+		return (-1);
+	}
 	return (0);
 }
