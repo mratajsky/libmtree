@@ -202,10 +202,10 @@ read_number(const char *tok, u_int base, intmax_t *res, intmax_t min,
 static int
 read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 {
-	char keyword[MAX_LINE_LENGTH];
+	char word[MAX_LINE_LENGTH];
 	char *value, *p;
 	intmax_t num;
-	int32_t field;
+	long keyword;
 	int32_t type;
 #ifdef HAVE_STRTOFFLAGS
 	u_long flset, flclr;
@@ -213,23 +213,23 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 	int err;
 
 	for (;;) {
-		err = read_word(s, keyword, sizeof(keyword));
+		err = read_word(s, word, sizeof(word));
 		if (err < 1)
 			break;
-		if (keyword[0] == '\0')
+		if (word[0] == '\0')
 			break;
 		s += err;
 
-		value = strchr(keyword, '=');
+		value = strchr(word, '=');
 		if (value != NULL)
 			*value++ = '\0';
 
-		field = mtree_str_to_field(keyword);
-		if (field == -1)
+		keyword = mtree_str_to_keyword(word);
+		if (keyword == -1)
 			continue;
 		if (set == false) {
 			/* Unset a field */
-			data->fields &= ~field;
+			data->keywords &= ~keyword;
 			continue;
 		}
 
@@ -244,8 +244,8 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 		 *   ENOSYS - Unsupported keyword encountered. The
 		 *            keyword is ignored.
 		 */
-		switch (field) {
-		case MTREE_F_CKSUM:
+		switch (keyword) {
+		case MTREE_KEYWORD_CKSUM:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
@@ -254,7 +254,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			if (err == 0)
 				data->cksum = (uint32_t) num;
 			break;
-		case MTREE_F_CONTENTS:
+		case MTREE_KEYWORD_CONTENTS:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
@@ -262,7 +262,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			mtree_copy_string(&data->contents, value);
 			break;
 #ifdef HAVE_STRTOFFLAGS
-		case MTREE_F_FLAGS:
+		case MTREE_KEYWORD_FLAGS:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
@@ -275,7 +275,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 				err = errno;
 			break;
 #endif
-		case MTREE_F_GID:
+		case MTREE_KEYWORD_GID:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
@@ -284,17 +284,17 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			if (err == 0)
 				data->stat.st_gid = (gid_t) num;
 			break;
-		case MTREE_F_GNAME:
+		case MTREE_KEYWORD_GNAME:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
 			}
 			mtree_copy_string(&data->gname, value);
 			break;
-		case MTREE_F_IGNORE:
+		case MTREE_KEYWORD_IGNORE:
 			/* No value */
 			break;
-		case MTREE_F_INODE:
+		case MTREE_KEYWORD_INODE:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
@@ -303,18 +303,18 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			if (err == 0)
 				data->stat.st_ino = (ino_t) num;
 			break;
-		case MTREE_F_LINK:
+		case MTREE_KEYWORD_LINK:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
 			}
 			mtree_copy_string(&data->link, value);
 			break;
-		case MTREE_F_MD5:
-		case MTREE_F_MD5DIGEST:
+		case MTREE_KEYWORD_MD5:
+		case MTREE_KEYWORD_MD5DIGEST:
 			mtree_copy_string(&data->md5digest, value);
 			break;
-		case MTREE_F_MODE:
+		case MTREE_KEYWORD_MODE:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
@@ -332,7 +332,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 				break;
 			}
 			break;
-		case MTREE_F_NLINK:
+		case MTREE_KEYWORD_NLINK:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
@@ -341,34 +341,34 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			if (!err)
 				data->stat.st_nlink = (nlink_t) num;
 			break;
-		case MTREE_F_NOCHANGE:
+		case MTREE_KEYWORD_NOCHANGE:
 			/* No value */
 			break;
-		case MTREE_F_OPTIONAL:
+		case MTREE_KEYWORD_OPTIONAL:
 			/* No value */
 			break;
-		case MTREE_F_RIPEMD160DIGEST:
-		case MTREE_F_RMD160:
-		case MTREE_F_RMD160DIGEST:
+		case MTREE_KEYWORD_RIPEMD160DIGEST:
+		case MTREE_KEYWORD_RMD160:
+		case MTREE_KEYWORD_RMD160DIGEST:
 			mtree_copy_string(&data->rmd160digest, value);
 			break;
-		case MTREE_F_SHA1:
-		case MTREE_F_SHA1DIGEST:
+		case MTREE_KEYWORD_SHA1:
+		case MTREE_KEYWORD_SHA1DIGEST:
 			mtree_copy_string(&data->sha1digest, value);
 			break;
-		case MTREE_F_SHA256:
-		case MTREE_F_SHA256DIGEST:
+		case MTREE_KEYWORD_SHA256:
+		case MTREE_KEYWORD_SHA256DIGEST:
 			mtree_copy_string(&data->sha256digest, value);
 			break;
-		case MTREE_F_SHA384:
-		case MTREE_F_SHA384DIGEST:
+		case MTREE_KEYWORD_SHA384:
+		case MTREE_KEYWORD_SHA384DIGEST:
 			mtree_copy_string(&data->sha384digest, value);
 			break;
-		case MTREE_F_SHA512:
-		case MTREE_F_SHA512DIGEST:
+		case MTREE_KEYWORD_SHA512:
+		case MTREE_KEYWORD_SHA512DIGEST:
 			mtree_copy_string(&data->sha512digest, value);
 			break;
-		case MTREE_F_SIZE:
+		case MTREE_KEYWORD_SIZE:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
@@ -377,7 +377,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			if (!err)
 				data->stat.st_size = num;
 			break;
-		case MTREE_F_TIME:
+		case MTREE_KEYWORD_TIME:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
@@ -400,7 +400,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 				break;
 			data->stat.st_mtim.tv_nsec = num;
 			break;
-		case MTREE_F_TYPE:
+		case MTREE_KEYWORD_TYPE:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
@@ -412,7 +412,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			} else
 				err = EINVAL;
 			break;
-		case MTREE_F_UID:
+		case MTREE_KEYWORD_UID:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
@@ -421,7 +421,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 			if (err == 0)
 				data->stat.st_uid = (uid_t) num;
 			break;
-		case MTREE_F_UNAME:
+		case MTREE_KEYWORD_UNAME:
 			if (value == NULL) {
 				err = EINVAL;
 				break;
@@ -434,7 +434,7 @@ read_mtree_keywords(const char *s, mtree_entry_data *data, bool set)
 		}
 
 		if (err == 0)
-			data->fields |= field;
+			data->keywords |= keyword;
 	}
 
 	return (0);
@@ -492,7 +492,7 @@ read_mtree_spec(mtree_reader *r, const char *s)
 			mtree_entry_free(entry);
 			return (-1);
 		}
-		mtree_entry_copy_missing_fields(entry, &r->defaults);
+		mtree_entry_copy_missing_keywords(entry, &r->defaults);
 
 		p = strchr(path, '/');
 		if (p != NULL) {

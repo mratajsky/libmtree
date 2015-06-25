@@ -37,20 +37,19 @@
 #include "mtree.h"
 #include "mtree_private.h"
 
-#define E_HAS_FIELD(e, f)	((e)->data.fields & (f))
-#define E_SET_FIELD(e, f)	((e)->data.fields |= (f))
-#define D_HAS_FIELD(d, f)	((d)->fields & (f))
-#define D_SET_FIELD(d, f)	((d)->fields |= (f))
-
-/* Mask of all fields read by stat(2) */
-#define F_MASK_STAT		(MTREE_F_GID |	 \
-				 MTREE_F_INODE | \
-				 MTREE_F_MODE |	 \
-				 MTREE_F_NLINK | \
-				 MTREE_F_SIZE |	 \
-				 MTREE_F_TIME |	 \
-				 MTREE_F_TYPE |	 \
-				 MTREE_F_UID);
+/* Mask of all keywords read by stat(2) */
+#define MTREE_KEYWORD_MASK_STAT	(MTREE_KEYWORD_FLAGS |	\
+				 MTREE_KEYWORD_GID |	\
+				 MTREE_KEYWORD_GNAME |	\
+				 MTREE_KEYWORD_INODE |	\
+				 MTREE_KEYWORD_LINK |	\
+				 MTREE_KEYWORD_MODE |	\
+				 MTREE_KEYWORD_NLINK |	\
+				 MTREE_KEYWORD_SIZE |	\
+				 MTREE_KEYWORD_TIME |	\
+				 MTREE_KEYWORD_TYPE |	\
+				 MTREE_KEYWORD_UID |	\
+				 MTREE_KEYWORD_UNAME)
 
 mtree_entry *
 mtree_entry_create(void)
@@ -102,7 +101,7 @@ mtree_entry_create_from_ftsent(FTSENT *ftsent)
 	entry->data.stat.st_nlink = ftsent->fts_statp->st_nlink;
 	entry->data.stat.st_size  = ftsent->fts_statp->st_size;
 	entry->data.stat.st_uid	  = ftsent->fts_statp->st_uid;
-	entry->data.fields   	  = F_MASK_STAT;
+	entry->data.keywords   	  = MTREE_KEYWORD_MASK_STAT;
 	return (entry);
 }
 
@@ -146,109 +145,110 @@ mtree_entry_free_data_items(mtree_entry_data *data)
 }
 
 static void
-copy_field(mtree_entry_data *data, mtree_entry_data *from, int32_t field)
+copy_keyword(mtree_entry_data *data, mtree_entry_data *from, long keyword)
 {
 
-	switch (field) {
-	case MTREE_F_CKSUM:
+	switch (keyword) {
+	case MTREE_KEYWORD_CKSUM:
 		data->cksum = from->cksum;
 		break;
-	case MTREE_F_CONTENTS:
+	case MTREE_KEYWORD_CONTENTS:
 		mtree_copy_string(&data->contents, from->contents);
 		break;
-	case MTREE_F_FLAGS:
+	case MTREE_KEYWORD_FLAGS:
 		mtree_copy_string(&data->flags, from->flags);
 		break;
-	case MTREE_F_GID:
+	case MTREE_KEYWORD_GID:
 		data->stat.st_gid = from->stat.st_gid;
 		break;
-	case MTREE_F_GNAME:
+	case MTREE_KEYWORD_GNAME:
 		mtree_copy_string(&data->gname, from->gname);
 		break;
-	case MTREE_F_IGNORE:
+	case MTREE_KEYWORD_IGNORE:
 		/* No value */
 		break;
-	case MTREE_F_INODE:
+	case MTREE_KEYWORD_INODE:
 		data->stat.st_ino = from->stat.st_ino;
 		break;
-	case MTREE_F_LINK:
+	case MTREE_KEYWORD_LINK:
 		mtree_copy_string(&data->link, from->link);
 		break;
-	case MTREE_F_MD5:
-	case MTREE_F_MD5DIGEST:
+	case MTREE_KEYWORD_MD5:
+	case MTREE_KEYWORD_MD5DIGEST:
 		mtree_copy_string(&data->md5digest, from->md5digest);
 		break;
-	case MTREE_F_MODE:
+	case MTREE_KEYWORD_MODE:
 		data->stat.st_mode &= S_IFMT;
 		data->stat.st_mode |= from->stat.st_mode & ~S_IFMT;
 		break;
-	case MTREE_F_NLINK:
+	case MTREE_KEYWORD_NLINK:
 		data->stat.st_nlink = from->stat.st_nlink;
 		break;
-	case MTREE_F_NOCHANGE:
+	case MTREE_KEYWORD_NOCHANGE:
 		/* No value */
 		break;
-	case MTREE_F_OPTIONAL:
+	case MTREE_KEYWORD_OPTIONAL:
 		/* No value */
 		break;
-	case MTREE_F_RIPEMD160DIGEST:
-	case MTREE_F_RMD160:
-	case MTREE_F_RMD160DIGEST:
+	case MTREE_KEYWORD_RIPEMD160DIGEST:
+	case MTREE_KEYWORD_RMD160:
+	case MTREE_KEYWORD_RMD160DIGEST:
 		mtree_copy_string(&data->rmd160digest, from->rmd160digest);
 		break;
-	case MTREE_F_SHA1:
-	case MTREE_F_SHA1DIGEST:
+	case MTREE_KEYWORD_SHA1:
+	case MTREE_KEYWORD_SHA1DIGEST:
 		mtree_copy_string(&data->sha1digest, from->sha1digest);
 		break;
-	case MTREE_F_SHA256:
-	case MTREE_F_SHA256DIGEST:
+	case MTREE_KEYWORD_SHA256:
+	case MTREE_KEYWORD_SHA256DIGEST:
 		mtree_copy_string(&data->sha256digest, from->sha256digest);
 		break;
-	case MTREE_F_SHA384:
-	case MTREE_F_SHA384DIGEST:
+	case MTREE_KEYWORD_SHA384:
+	case MTREE_KEYWORD_SHA384DIGEST:
 		mtree_copy_string(&data->sha384digest, from->sha384digest);
 		break;
-	case MTREE_F_SHA512:
-	case MTREE_F_SHA512DIGEST:
+	case MTREE_KEYWORD_SHA512:
+	case MTREE_KEYWORD_SHA512DIGEST:
 		mtree_copy_string(&data->sha512digest, from->sha512digest);
 		break;
-	case MTREE_F_SIZE:
+	case MTREE_KEYWORD_SIZE:
 		data->stat.st_size = from->stat.st_size;
 		break;
-	case MTREE_F_TIME:
+	case MTREE_KEYWORD_TIME:
 		data->stat.st_mtim = from->stat.st_mtim;
 		break;
-	case MTREE_F_TYPE:
+	case MTREE_KEYWORD_TYPE:
 		data->stat.st_mode &= ~S_IFMT;
 		data->stat.st_mode |= (from->stat.st_mode & S_IFMT);
 		break;
-	case MTREE_F_UID:
+	case MTREE_KEYWORD_UID:
 		data->stat.st_uid = from->stat.st_uid;
 		break;
-	case MTREE_F_UNAME:
+	case MTREE_KEYWORD_UNAME:
 		mtree_copy_string(&data->uname, from->uname);
 		break;
 	default:
-		/* Invalid field */
+		/* Invalid keyword */
 		return;
 	}
 
-	data->fields |= field;
+	data->keywords |= keyword;
 }
 
 void
-mtree_entry_copy_missing_fields(mtree_entry *entry, mtree_entry_data *from)
+mtree_entry_copy_missing_keywords(mtree_entry *entry, mtree_entry_data *from)
 {
 	int i;
 
 	assert(entry != NULL);
 	assert(from != NULL);
 
-	for (i = 0; mtree_fields[i].name != NULL; i++) {
-		if (E_HAS_FIELD(entry, mtree_fields[i].field) ||
-		    !D_HAS_FIELD(from, mtree_fields[i].field))
+	for (i = 0; mtree_keywords[i].name != NULL; i++) {
+		if (entry->data.keywords & mtree_keywords[i].keyword)
 			continue;
-		copy_field(&entry->data, from, mtree_fields[i].field);
+		if ((from->keywords & mtree_keywords[i].keyword) == 0)
+			continue;
+		copy_keyword(&entry->data, from, mtree_keywords[i].keyword);
 	}
 }
 

@@ -36,12 +36,12 @@
 #include "mtree.h"
 
 typedef struct _mtree_entry_data	mtree_entry_data;
-typedef struct _mtree_field_map		mtree_field_map;
+typedef struct _mtree_keyword_map	mtree_keyword_map;
 typedef struct _mtree_reader		mtree_reader;
 
 struct _mtree_entry_data {
 	uint32_t	 cksum;
-	uint32_t	 fields;
+	long		 keywords;
 	char		*contents;
 	char		*flags;
 	char		*gname;
@@ -86,12 +86,12 @@ struct _mtree_spec {
 	mtree_reader 	*reader;
 };
 
-struct _mtree_field_map {
+struct _mtree_keyword_map {
 	char		*name;
-	int32_t		 field;
+	long		 keyword;
 };
 
-extern const mtree_field_map mtree_fields[];
+extern const mtree_keyword_map mtree_keywords[];
 
 /* mtree_entry.c */
 mtree_entry	*mtree_entry_create(void);
@@ -100,7 +100,7 @@ mtree_entry	*mtree_entry_create_from_ftsent(FTSENT *ftsent);
 void		 mtree_entry_free(mtree_entry *entry);
 void		 mtree_entry_free_all(mtree_entry *entries);
 void		 mtree_entry_free_data_items(mtree_entry_data *data);
-void		 mtree_entry_copy_missing_fields(mtree_entry *entry, mtree_entry_data *from);
+void		 mtree_entry_copy_missing_keywords(mtree_entry *entry, mtree_entry_data *from);
 mtree_entry 	*mtree_entry_prepend(mtree_entry *entry, mtree_entry *child);
 mtree_entry 	*mtree_entry_append(mtree_entry *entry, mtree_entry *child);
 
@@ -115,9 +115,9 @@ int		 mtree_reader_add(mtree_reader *r, const char *s, int len);
 int		 mtree_reader_finish(mtree_reader *r, mtree_entry **entries);
 
 /* mtree_utils.c */
-int32_t 	 mtree_str_to_field(const char *s);
+long		 mtree_str_to_keyword(const char *s);
 int32_t 	 mtree_str_to_type(const char *s);
-const char 	*mtree_field_to_str(int32_t field);
+const char 	*mtree_keyword_to_str(long keyword);
 int		 mtree_copy_string(char **dst, const char *src);
 
 #endif /* !_LIBMTREE_MTREE_PRIVATE_H_ */
