@@ -186,6 +186,37 @@ typedef enum {
 					 MTREE_KEYWORD_RMD160DIGEST |	\
 					 MTREE_KEYWORD_RIPEMD160DIGEST)
 
+mtree_entry 	*mtree_entry_get_first(mtree_entry *entry);
+mtree_entry 	*mtree_entry_get_last(mtree_entry *entry);
+mtree_entry 	*mtree_entry_get_previous(mtree_entry *entry);
+mtree_entry 	*mtree_entry_get_next(mtree_entry *entry);
+mtree_entry	*mtree_entry_get_parent(mtree_entry *entry);
+
+const char	*mtree_entry_get_name(mtree_entry *entry);
+const char	*mtree_entry_get_path(mtree_entry *entry);
+long		 mtree_entry_get_keywords(mtree_entry *entry);
+
+uint32_t	 mtree_entry_get_cksum(mtree_entry *entry);
+gid_t		 mtree_entry_get_gid(mtree_entry *entry);
+const char	*mtree_entry_get_gname(mtree_entry *entry);
+const char	*mtree_entry_get_link(mtree_entry *entry);
+const char	*mtree_entry_get_md5digest(mtree_entry *entry);
+mode_t		 mtree_entry_get_mode(mtree_entry *entry);
+nlink_t		 mtree_entry_get_nlink(mtree_entry *entry);
+const char 	*mtree_entry_get_rmd160digest(mtree_entry *entry);
+const char 	*mtree_entry_get_sha1digest(mtree_entry *entry);
+const char 	*mtree_entry_get_sha256digest(mtree_entry *entry);
+const char 	*mtree_entry_get_sha384digest(mtree_entry *entry);
+const char 	*mtree_entry_get_sha512digest(mtree_entry *entry);
+off_t		 mtree_entry_get_size(mtree_entry *entry);
+struct timespec *mtree_entry_get_time(mtree_entry *entry);
+mtree_entry_type mtree_entry_get_type(mtree_entry *entry);
+uid_t		 mtree_entry_get_uid(mtree_entry *entry);
+const char	*mtree_entry_get_uname(mtree_entry *entry);
+void		 mtree_entry_set_keywords(mtree_entry *entry, long keywords,
+		    int overwrite);
+mtree_entry 	*mtree_entry_find_path(mtree_entry *entry, const char *path);
+
 mtree_spec	*mtree_spec_create(void);
 void		 mtree_spec_free(mtree_spec *spec);
 void		 mtree_spec_reset(mtree_spec *spec);
@@ -203,14 +234,6 @@ void		 mtree_spec_diff_free(mtree_spec_diff *sd);
 mtree_entry	*mtree_spec_diff_get_spec1_only(mtree_spec_diff *sd);
 mtree_entry	*mtree_spec_diff_get_spec2_only(mtree_spec_diff *sd);
 mtree_entry	*mtree_spec_diff_get_different(mtree_spec_diff *sd);
-
-void		 mtree_entry_set_keywords(mtree_entry *entry, long keywords,
-		    int overwrite);
-mtree_entry	*mtree_entry_first(mtree_entry *entry);
-mtree_entry	*mtree_entry_last(mtree_entry *entry);
-mtree_entry	*mtree_entry_previous(mtree_entry *entry);
-mtree_entry	*mtree_entry_next(mtree_entry *entry);
-mtree_entry 	*mtree_entry_find_path(mtree_entry *entry, const char *path);
 
 mtree_entry_type mtree_parse_type(const char *type);
 long		 mtree_parse_keyword(const char *keyword);

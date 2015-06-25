@@ -30,7 +30,7 @@
 
 #include <assert.h>
 #include <fts.h>
-#include <stdint.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -486,8 +486,7 @@ copy_keyword(mtree_entry_data *data, mtree_entry_data *from, long keyword)
 		mtree_copy_string(&data->md5digest, from->md5digest);
 		break;
 	case MTREE_KEYWORD_MODE:
-		data->st_mode &= S_IFMT;
-		data->st_mode |= from->st_mode & ~S_IFMT;
+		data->type = from->type;
 		break;
 	case MTREE_KEYWORD_NLINK:
 		data->st_nlink = from->st_nlink;
@@ -596,8 +595,44 @@ mtree_entry_copy_missing_keywords(mtree_entry *entry, mtree_entry_data *from)
 	}
 }
 
+const char *
+mtree_entry_get_name(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->name);
+}
+
+const char *
+mtree_entry_get_path(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->path);
+}
+
+long
+mtree_entry_get_keywords(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.keywords);
+}
+
 mtree_entry *
-mtree_entry_first(mtree_entry *entry)
+mtree_entry_get_parent(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->parent);
+}
+
+mtree_entry *
+mtree_entry_get_first(mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -605,11 +640,11 @@ mtree_entry_first(mtree_entry *entry)
 	while (entry->prev != NULL)
 		entry = entry->prev;
 
-	return entry;
+	return (entry);
 }
 
 mtree_entry *
-mtree_entry_last(mtree_entry *entry)
+mtree_entry_get_last(mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -617,25 +652,178 @@ mtree_entry_last(mtree_entry *entry)
 	while (entry->next != NULL)
 		entry = entry->next;
 
-	return entry;
+	return (entry);
 }
 
 mtree_entry *
-mtree_entry_previous(mtree_entry *entry)
+mtree_entry_get_previous(mtree_entry *entry)
 {
 
 	assert(entry != NULL);
 
-	return entry->prev;
+	return (entry->prev);
 }
 
 mtree_entry *
-mtree_entry_next(mtree_entry *entry)
+mtree_entry_get_next(mtree_entry *entry)
 {
 
 	assert(entry != NULL);
 
-	return entry->next;
+	return (entry->next);
+}
+
+mtree_entry_type
+mtree_entry_get_type(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.type);
+}
+
+uint32_t
+mtree_entry_get_cksum(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.cksum);
+}
+
+gid_t
+mtree_entry_get_gid(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.st_gid);
+}
+
+const char *
+mtree_entry_get_gname(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.gname);
+}
+
+const char *
+mtree_entry_get_link(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.link);
+}
+
+const char *
+mtree_entry_get_md5digest(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.md5digest);
+}
+
+mode_t
+mtree_entry_get_mode(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.st_mode);
+}
+
+nlink_t
+mtree_entry_get_nlink(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.st_nlink);
+}
+
+const char *
+mtree_entry_get_rmd160digest(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.rmd160digest);
+}
+
+const char *
+mtree_entry_get_sha1digest(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.sha1digest);
+}
+
+const char *
+mtree_entry_get_sha256digest(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.sha256digest);
+}
+
+const char *
+mtree_entry_get_sha384digest(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.sha384digest);
+}
+
+const char *
+mtree_entry_get_sha512digest(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.sha512digest);
+}
+
+off_t
+mtree_entry_get_size(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.st_size);
+}
+
+struct timespec *
+mtree_entry_get_time(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (&entry->data.st_mtim);
+}
+
+uid_t
+mtree_entry_get_uid(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.st_uid);
+}
+
+const char *
+mtree_entry_get_uname(mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.uname);
 }
 
 mtree_entry *
@@ -658,6 +846,8 @@ mtree_entry *
 mtree_entry_prepend(mtree_entry *entry, mtree_entry *child)
 {
 
+	assert(child != NULL);
+
 	child->next = entry;
 	if (entry != NULL) {
 		child->prev = entry->prev;
@@ -674,12 +864,14 @@ mtree_entry *
 mtree_entry_append(mtree_entry *entry, mtree_entry *child)
 {
 
+	assert(child != NULL);
+
 	if (entry != NULL) {
 		mtree_entry *last;
 
-		last = mtree_entry_last(entry);
+		last = mtree_entry_get_last(entry);
 		last->next  = child;
-		child->prev = entry;
+		child->prev = last;
 	} else {
 		child->prev = NULL;
 		entry = child;
