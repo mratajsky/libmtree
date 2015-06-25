@@ -41,53 +41,6 @@
 #include "mtree.h"
 #include "mtree_private.h"
 
-long
-mtree_str_to_keyword(const char *s)
-{
-	int i;
-
-	for (i = 0; mtree_keywords[i].name != NULL; i++) {
-		if (strcmp(mtree_keywords[i].name, s))
-			continue;
-		return mtree_keywords[i].keyword;
-	}
-	return (-1);
-}
-
-int32_t
-mtree_str_to_type(const char *s)
-{
-	if (strcmp(s, "file") == 0)
-		return S_IFREG;
-	if (strcmp(s, "dir") == 0)
-		return S_IFDIR;
-	if (strcmp(s, "link") == 0)
-		return S_IFLNK;
-	if (strcmp(s, "block") == 0)
-		return S_IFBLK;
-	if (strcmp(s, "char") == 0)
-		return S_IFCHR;
-	if (strcmp(s, "fifo") == 0)
-		return S_IFIFO;
-	if (strcmp(s, "socket") == 0)
-		return S_IFSOCK;
-
-	return (-1);
-}
-
-const char *
-mtree_keyword_to_str(long keyword)
-{
-	int i;
-
-	for (i = 0; mtree_keywords[i].name != NULL; i++) {
-		if (mtree_keywords[i].keyword != keyword)
-			continue;
-		return mtree_keywords[i].name;
-	}
-	return (NULL);
-}
-
 int
 mtree_copy_string(char **dst, const char *src)
 {

@@ -145,9 +145,6 @@ mtree_entry 	*mtree_entry_append(mtree_entry *entry, mtree_entry *child);
 mtree_entry	*mtree_entry_reverse(mtree_entry *entry);
 mtree_entry	*mtree_entry_unlink(mtree_entry *head, mtree_entry *entry);
 
-/* mtree_crc.c */
-int 		 mtree_crc(int fd, uint32_t *crc_val, uint32_t *crc_total);
-
 /* mtree_reader.c */
 mtree_reader	*mtree_reader_create(void);
 void		 mtree_reader_free(mtree_reader *r);
@@ -168,9 +165,6 @@ void		 mtree_writer_set_format(mtree_writer *w, mtree_format format);
 void		 mtree_writer_set_options(mtree_writer *w, int options);
 
 /* mtree_utils.c */
-long		 mtree_str_to_keyword(const char *s);
-int32_t 	 mtree_str_to_type(const char *s);
-const char 	*mtree_keyword_to_str(long keyword);
 int		 mtree_copy_string(char **dst, const char *src);
 char		*mtree_get_gname(gid_t gid);
 char		*mtree_get_link(const char *path);
