@@ -274,8 +274,7 @@ set_keyword_defaults(mtree_writer *w, mtree_entry *entry)
 
 #define UPDATE(keyword, p, field)				\
 	do {							\
-		if (entry->data.keywords & (keyword) &&		\
-	    	    ++p[entry->data.field] > p##_max) {		\
+		if (++p[entry->data.field] > p##_max) {		\
 			p##_max = p[entry->data.field];		\
 			p##_set = entry->data.field;		\
 		}						\
@@ -299,15 +298,20 @@ set_keyword_defaults(mtree_writer *w, mtree_entry *entry)
 		 * Remember number of occurrences of values for the
 		 * selected keywords
 		 */
-		if (entry->data.st_uid < SET_MAX_UID)
+		if (entry->data.keywords & MTREE_KEYWORD_UID &&
+		    entry->data.st_uid < SET_MAX_UID)
 			UPDATE(MTREE_KEYWORD_UID, u, st_uid);
-		if (entry->data.st_gid < SET_MAX_GID)
+		if (entry->data.keywords & MTREE_KEYWORD_GID &&
+		    entry->data.st_gid < SET_MAX_GID)
 			UPDATE(MTREE_KEYWORD_GID, g, st_gid);
-		if (entry->data.st_nlink < SET_MAX_NLINK)
+		if (entry->data.keywords & MTREE_KEYWORD_NLINK &&
+		    entry->data.st_nlink < SET_MAX_NLINK)
 			UPDATE(MTREE_KEYWORD_NLINK, n, st_nlink);
 
-		UPDATE(MTREE_KEYWORD_MODE, m, st_mode);
-		UPDATE(MTREE_KEYWORD_TYPE, t, type);
+		if (entry->data.keywords & MTREE_KEYWORD_MODE)
+			UPDATE(MTREE_KEYWORD_MODE, m, st_mode);
+		if (entry->data.keywords & MTREE_KEYWORD_TYPE)
+			UPDATE(MTREE_KEYWORD_TYPE, t, type);
 		count++;
 		entry = entry->next;
 	}
@@ -317,8 +321,10 @@ set_keyword_defaults(mtree_writer *w, mtree_entry *entry)
 
 #define SET(keyword, p, field)						\
 	do {								\
-		if ((w->defaults.keywords & keyword) == 0 ||		\
-		    (p##_set != w->defaults.field && p[p##_set] > 0)) {	\
+		if (p[p##_set] > 0 &&					\
+		    ((w->defaults.keywords & keyword) == 0 ||		\
+		     (p##_set != w->defaults.field &&			\
+		      p[p##_set] > p[w->defaults.field]))) {		\
 			keywords |= keyword;				\
 			w->defaults.field = p##_set;			\
 		}							\
