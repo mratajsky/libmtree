@@ -43,7 +43,6 @@
 
 struct mtree_device;
 typedef struct _mtree_entry_data	mtree_entry_data;
-typedef struct _mtree_keyword_map	mtree_keyword_map;
 typedef struct _mtree_reader		mtree_reader;
 typedef struct _mtree_writer		mtree_writer;
 
@@ -136,12 +135,16 @@ struct _mtree_spec {
 	int		 read_options;
 };
 
-struct _mtree_keyword_map {
+/*
+ * mtree_keyword_map
+ * Assists conversion between keyword names and constants
+ */
+struct mtree_keyword_map {
 	char		*name;
 	long		 keyword;
 };
 
-extern const mtree_keyword_map mtree_keywords[];
+extern const struct mtree_keyword_map mtree_keywords[];
 
 /* mtree_device.c */
 void			 mtree_device_copy_data(struct mtree_device *dev,

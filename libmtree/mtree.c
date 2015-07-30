@@ -25,109 +25,163 @@
  */
 
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 
+#include "compat.h"
 #include "mtree.h"
 #include "mtree_private.h"
 
 /*
- * Keep this in the order of writing
+ * List of keyword names and constants. Keep it lexically sorted.
  */
-const mtree_keyword_map mtree_keywords[] = {
-	{ "type", 		MTREE_KEYWORD_TYPE },
-	{ "uname", 		MTREE_KEYWORD_UNAME },
-	{ "uid", 		MTREE_KEYWORD_UID },
-	{ "gname", 		MTREE_KEYWORD_GNAME },
-	{ "gid", 		MTREE_KEYWORD_GID },
-	{ "mode", 		MTREE_KEYWORD_MODE },
-	{ "nlink", 		MTREE_KEYWORD_NLINK },
-	{ "size", 		MTREE_KEYWORD_SIZE },
-	{ "time", 		MTREE_KEYWORD_TIME },
-	{ "link", 		MTREE_KEYWORD_LINK },
-	{ "cksum", 		MTREE_KEYWORD_CKSUM },
-	{ "md5", 		MTREE_KEYWORD_MD5 },
-	{ "md5digest", 		MTREE_KEYWORD_MD5DIGEST },
-	{ "ripemd160digest", 	MTREE_KEYWORD_RIPEMD160DIGEST },
-	{ "rmd160", 		MTREE_KEYWORD_RMD160 },
-	{ "rmd160digest", 	MTREE_KEYWORD_RMD160DIGEST },
-	{ "sha1", 		MTREE_KEYWORD_SHA1 },
-	{ "sha1digest", 	MTREE_KEYWORD_SHA1DIGEST },
-	{ "sha256", 		MTREE_KEYWORD_SHA256 },
-	{ "sha256digest", 	MTREE_KEYWORD_SHA256DIGEST },
-	{ "sha384", 		MTREE_KEYWORD_SHA384 },
-	{ "sha384digest", 	MTREE_KEYWORD_SHA384DIGEST },
-	{ "sha512", 		MTREE_KEYWORD_SHA512 },
-	{ "sha512digest", 	MTREE_KEYWORD_SHA512DIGEST },
-	{ "flags", 		MTREE_KEYWORD_FLAGS },
-	{ "contents", 		MTREE_KEYWORD_CONTENTS },
-	{ "ignore", 		MTREE_KEYWORD_IGNORE },
-	{ "nochange", 		MTREE_KEYWORD_NOCHANGE },
-	{ "optional", 		MTREE_KEYWORD_OPTIONAL },
+const struct mtree_keyword_map mtree_keywords[] = {
+	{ "cksum",		MTREE_KEYWORD_CKSUM },
+	{ "contents",		MTREE_KEYWORD_CONTENTS },
+	{ "device",		MTREE_KEYWORD_DEVICE },
+	{ "flags",		MTREE_KEYWORD_FLAGS },
+	{ "gid",		MTREE_KEYWORD_GID },
+	{ "gname",		MTREE_KEYWORD_GNAME },
+	{ "ignore",		MTREE_KEYWORD_IGNORE },
 	{ "inode", 		MTREE_KEYWORD_INODE },
-	{ NULL, -1 }
+	{ "link",		MTREE_KEYWORD_LINK },
+	{ "md5",		MTREE_KEYWORD_MD5 },
+	{ "md5digest",		MTREE_KEYWORD_MD5DIGEST },
+	{ "mode",		MTREE_KEYWORD_MODE },
+	{ "nlink",		MTREE_KEYWORD_NLINK },
+	{ "nochange",		MTREE_KEYWORD_NOCHANGE },
+	{ "optional",		MTREE_KEYWORD_OPTIONAL },
+	{ "ripemd160digest",	MTREE_KEYWORD_RIPEMD160DIGEST },
+	{ "rmd160",		MTREE_KEYWORD_RMD160 },
+	{ "rmd160digest",	MTREE_KEYWORD_RMD160DIGEST },
+	{ "sha1",		MTREE_KEYWORD_SHA1 },
+	{ "sha1digest",		MTREE_KEYWORD_SHA1DIGEST },
+	{ "sha256",		MTREE_KEYWORD_SHA256 },
+	{ "sha256digest",	MTREE_KEYWORD_SHA256DIGEST },
+	{ "sha384",		MTREE_KEYWORD_SHA384 },
+	{ "sha384digest",	MTREE_KEYWORD_SHA384DIGEST },
+	{ "sha512",		MTREE_KEYWORD_SHA512 },
+	{ "sha512digest",	MTREE_KEYWORD_SHA512DIGEST },
+	{ "size",		MTREE_KEYWORD_SIZE },
+	{ "tags",		MTREE_KEYWORD_TAGS },
+	{ "time",		MTREE_KEYWORD_TIME },
+	{ "type",		MTREE_KEYWORD_TYPE },
+	{ "uid",		MTREE_KEYWORD_UID },
+	{ "uname",		MTREE_KEYWORD_UNAME },
+	{ NULL,			0 }
 };
+#define N_KEYWORDS		(__arraycount(mtree_keywords) - 1)
 
+/*
+ * List of mtree_entry_type names and constants. Keep it lexically sorted.
+ */
+static const struct entry_type_map {
+	const char 	*name;
+	mtree_entry_type type;
+} entry_types[] = {
+	{ "block",		MTREE_ENTRY_BLOCK },
+	{ "char",		MTREE_ENTRY_CHAR },
+	{ "dir",		MTREE_ENTRY_DIR },
+	{ "fifo",		MTREE_ENTRY_FIFO },
+	{ "file",		MTREE_ENTRY_FILE },
+	{ "link",		MTREE_ENTRY_LINK },
+	{ "socket",		MTREE_ENTRY_SOCKET },
+	{ "unknown",		MTREE_ENTRY_UNKNOWN }
+};
+#define N_ENTRY_TYPES		(__arraycount(entry_types))
+
+static int
+compare_entry_name(const void *key, const void *map)
+{
+
+	return (strcmp((const char *)key, ((struct entry_type_map *)map)->name));
+}
+
+/*
+ * Convert entry type string to an mtree_entry_type.
+ */
 mtree_entry_type
-mtree_parse_type(const char *type)
+mtree_entry_type_parse(const char *name)
 {
+	struct entry_type_map *item;
 
-	assert(type != NULL);
+	assert(name != NULL);
 
-	if (strcmp(type, "file") == 0)
-		return MTREE_ENTRY_FILE;
-	if (strcmp(type, "dir") == 0)
-		return MTREE_ENTRY_DIR;
-	if (strcmp(type, "link") == 0)
-		return MTREE_ENTRY_LINK;
-	if (strcmp(type, "block") == 0)
-		return MTREE_ENTRY_BLOCK;
-	if (strcmp(type, "char") == 0)
-		return MTREE_ENTRY_CHAR;
-	if (strcmp(type, "fifo") == 0)
-		return MTREE_ENTRY_FIFO;
-	if (strcmp(type, "socket") == 0)
-		return MTREE_ENTRY_SOCKET;
-
-	return MTREE_ENTRY_UNKNOWN;
+	item = bsearch(name, entry_types,
+	    N_ENTRY_TYPES,
+	    sizeof(entry_types[0]), compare_entry_name);
+	if (item != NULL)
+		return (item->type);
+	return (MTREE_ENTRY_UNKNOWN);
 }
 
+static int
+compare_entry_type(const void *key, const void *map)
+{
+
+	return (*((int *)key) - ((struct entry_type_map *)map)->type);
+}
+
+/*
+ * Convert mtree_entry_type to a string.
+ */
 const char *
-mtree_type_string(mtree_entry_type type)
+mtree_entry_type_string(mtree_entry_type type)
 {
+	struct entry_type_map *item;
 
-	switch (type) {
-	case MTREE_ENTRY_FILE:
-		return ("file");
-	case MTREE_ENTRY_DIR:
-		return ("dir");
-	case MTREE_ENTRY_LINK:
-		return ("link");
-	case MTREE_ENTRY_BLOCK:
-		return ("block");
-	case MTREE_ENTRY_CHAR:
-		return ("char");
-	case MTREE_ENTRY_FIFO:
-		return ("fifo");
-	case MTREE_ENTRY_SOCKET:
-		return ("socket");
-	case MTREE_ENTRY_UNKNOWN:
-		return ("");
-	default:
-		return (NULL);
-	}
+	item = bsearch(&type, entry_types,
+	    N_ENTRY_TYPES,
+	    sizeof(entry_types[0]), compare_entry_type);
+	if (item != NULL)
+		return (item->name);
+	return (NULL);
 }
 
-long
-mtree_parse_keyword(const char *keyword)
+static int
+compare_keyword_name(const void *key, const void *map)
 {
-	int i;
+
+	return (strcmp((const char *)key, ((struct mtree_keyword_map *)map)->name));
+}
+
+/*
+ * Convert keyword string to the appropriate numeric constant.
+ */
+long
+mtree_keyword_parse(const char *keyword)
+{
+	struct mtree_keyword_map *item;
 
 	assert(keyword != NULL);
 
-	for (i = 0; mtree_keywords[i].name != NULL; i++) {
-		if (strcmp(mtree_keywords[i].name, keyword) != 0)
-			continue;
-		return mtree_keywords[i].keyword;
-	}
-	return (-1);
+	item = bsearch(keyword, mtree_keywords,
+	    N_KEYWORDS,
+	    sizeof(mtree_keywords[0]), compare_keyword_name);
+	if (item != NULL)
+		return (item->keyword);
+	return (0);
+}
+
+static int
+compare_keyword(const void *key, const void *map)
+{
+
+	return (*((long *)key) - ((struct mtree_keyword_map *)map)->keyword);
+}
+
+/*
+ * Convert keyword to a string.
+ */
+const char *
+mtree_keyword_string(long keyword)
+{
+	struct mtree_keyword_map *item;
+
+	item = bsearch(&keyword, mtree_keywords,
+	    N_KEYWORDS,
+	    sizeof(mtree_keywords[0]), compare_keyword);
+	if (item != NULL)
+		return (item->name);
+	return (NULL);
 }

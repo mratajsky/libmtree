@@ -232,7 +232,7 @@ read_mtree_keywords(mtree_reader *r, const char *s, mtree_entry_data *data, bool
 		if (value != NULL)
 			*value++ = '\0';
 
-		keyword = mtree_parse_keyword(word);
+		keyword = mtree_keyword_parse(word);
 		if (keyword == -1)
 			continue;
 
@@ -426,7 +426,7 @@ read_mtree_keywords(mtree_reader *r, const char *s, mtree_entry_data *data, bool
 				err = EINVAL;
 				break;
 			}
-			data->type = mtree_parse_type(value);
+			data->type = mtree_entry_type_parse(value);
 			break;
 		case MTREE_KEYWORD_UID:
 			if (value == NULL) {

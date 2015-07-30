@@ -37,11 +37,51 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "compat.h"
 #include "mtree.h"
 #include "mtree_private.h"
 
 #define	INDENTNAMELEN	15
 #define	INDENTLINELEN	80
+
+/*
+ * This is the order of keywords as they are written to specfiles.
+ * It mostly resembles the v2 order in the original mtree.
+ */
+static const long write_keywords[] = {
+	MTREE_KEYWORD_TYPE,
+	MTREE_KEYWORD_UNAME,
+	MTREE_KEYWORD_UID,
+	MTREE_KEYWORD_GNAME,
+	MTREE_KEYWORD_GID,
+	MTREE_KEYWORD_MODE,
+	MTREE_KEYWORD_INODE,
+	MTREE_KEYWORD_DEVICE,
+	MTREE_KEYWORD_NLINK,
+	MTREE_KEYWORD_LINK,
+	MTREE_KEYWORD_SIZE,
+	MTREE_KEYWORD_TIME,
+	MTREE_KEYWORD_CKSUM,
+	MTREE_KEYWORD_MD5,
+	MTREE_KEYWORD_MD5DIGEST,
+	MTREE_KEYWORD_RIPEMD160DIGEST,
+	MTREE_KEYWORD_RMD160,
+	MTREE_KEYWORD_RMD160DIGEST,
+	MTREE_KEYWORD_SHA1,
+	MTREE_KEYWORD_SHA1DIGEST,
+	MTREE_KEYWORD_SHA256,
+	MTREE_KEYWORD_SHA256DIGEST,
+	MTREE_KEYWORD_SHA384,
+	MTREE_KEYWORD_SHA384DIGEST,
+	MTREE_KEYWORD_SHA512,
+	MTREE_KEYWORD_SHA512DIGEST,
+	MTREE_KEYWORD_FLAGS,
+	MTREE_KEYWORD_CONTENTS,
+	MTREE_KEYWORD_IGNORE,
+	MTREE_KEYWORD_OPTIONAL,
+	MTREE_KEYWORD_NOCHANGE,
+	MTREE_KEYWORD_TAGS
+};
 
 mtree_writer *
 mtree_writer_create(void)
@@ -246,7 +286,7 @@ write_keyword(mtree_writer *w, mtree_entry_data *data, int *offset, long keyword
 		    data->st_mtim.tv_sec,
 		    data->st_mtim.tv_nsec);
 	case MTREE_KEYWORD_TYPE:
-		return WRITE("type=%s", mtree_type_string(data->type));
+		return WRITE("type=%s", mtree_entry_type_string(data->type));
 	case MTREE_KEYWORD_UID:
 		return WRITE("uid=%ju", data->st_uid);
 	case MTREE_KEYWORD_UNAME:
@@ -351,17 +391,18 @@ set_keyword_defaults(mtree_writer *w, mtree_entry *entry)
 	SET(MTREE_KEYWORD_TYPE, t, type);
 
 	if (keywords != 0) {
-		int offset = 0;
-		int i;
+		int	offset;
+		size_t	i;
 
+		offset = 0;
 		write_part(w, &offset, "/set");
 
 		/* Write the keywords */
-		for (i = 0; mtree_keywords[i].keyword != -1; i++)
-			if (keywords & mtree_keywords[i].keyword)
+		for (i = 0; i < __arraycount(write_keywords); i++)
+			if (keywords & write_keywords[i])
 				write_keyword(w, &w->defaults, &offset,
-					mtree_keywords[i].keyword,
-					WRITE_KW_PREFIX);
+				    write_keywords[i],
+				    WRITE_KW_PREFIX);
 		write_part(w, NULL, "\n");
 
 		w->defaults.keywords |= keywords;
@@ -376,7 +417,7 @@ write_entries_diff(mtree_writer *w, mtree_entry *entries)
 {
 	mtree_entry *entry;
 	char *path;
-	int i;
+	size_t i;
 
 	entry = entries;
 	while (entry != NULL) {
@@ -403,22 +444,22 @@ write_entries_diff(mtree_writer *w, mtree_entry *entries)
 		write_part(w, NULL, "%s", path);
 		if (entry->data.type != MTREE_ENTRY_UNKNOWN)
 			write_part(w, NULL, " %s",
-			    mtree_type_string(entry->data.type));
+			    mtree_entry_type_string(entry->data.type));
 		free(path);
 
 		/*
 		 * Write keywords
 		 */
-		for (i = 0; mtree_keywords[i].keyword != -1; i++) {
+		for (i = 0; i < __arraycount(write_keywords); i++) {
 			/*
 			 * Type is included separately, skip it here
 			 */
-			if (mtree_keywords[i].keyword == MTREE_KEYWORD_TYPE)
+			if (write_keywords[i] == MTREE_KEYWORD_TYPE)
 				continue;
-			if ((entry->data.keywords & mtree_keywords[i].keyword) == 0)
+			if ((entry->data.keywords & write_keywords[i]) == 0)
 				continue;
 			write_keyword(w, &entry->data, NULL,
-			    mtree_keywords[i].keyword,
+			    write_keywords[i],
 			    WRITE_KW_PREFIX);
 		}
 		write_part(w, NULL, "\n");
@@ -504,7 +545,7 @@ write_entries(mtree_writer *w, mtree_entry *entries)
 			unset = w->defaults.keywords & ~entry->data.keywords;
 			if (unset != 0) {
 				write_part(w, NULL, "/unset");
-				for (i = 0; mtree_keywords[i].keyword != -1; i++)
+				for (i = 0; mtree_keywords[i].name != NULL; i++)
 					if (unset & mtree_keywords[i].keyword)
 						write_part(w, NULL, " %s",
 						    mtree_keywords[i].name);
@@ -553,14 +594,14 @@ write_entries(mtree_writer *w, mtree_entry *entries)
 		/*
 		 * Write keywords
 		 */
-		for (i = 0; mtree_keywords[i].keyword != -1; i++) {
-			if ((entry->data.keywords & mtree_keywords[i].keyword) == 0)
+		for (i = 0; i < __arraycount(write_keywords); i++) {
+			if ((entry->data.keywords & write_keywords[i]) == 0)
 				continue;
 			if (mtree_entry_data_compare_keyword(&w->defaults,
-				&entry->data, mtree_keywords[i].keyword) == 0)
+				&entry->data, write_keywords[i]) == 0)
 				continue;
 			write_keyword(w, &entry->data, &offset,
-			    mtree_keywords[i].keyword,
+			    write_keywords[i],
 			    kw_options);
 		}
 

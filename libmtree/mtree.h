@@ -42,14 +42,14 @@ typedef struct _mtree_spec_diff	mtree_spec_diff;
  * Spec entry types
  */
 typedef enum {
-	MTREE_ENTRY_UNKNOWN,
-	MTREE_ENTRY_FILE,
-	MTREE_ENTRY_DIR,
-	MTREE_ENTRY_LINK,
 	MTREE_ENTRY_BLOCK,
 	MTREE_ENTRY_CHAR,
+	MTREE_ENTRY_DIR,
 	MTREE_ENTRY_FIFO,
-	MTREE_ENTRY_SOCKET
+	MTREE_ENTRY_FILE,
+	MTREE_ENTRY_LINK,
+	MTREE_ENTRY_SOCKET,
+	MTREE_ENTRY_UNKNOWN
 } mtree_entry_type;
 
 /*
@@ -282,8 +282,9 @@ mtree_entry	*mtree_spec_diff_get_spec1_only(mtree_spec_diff *sd);
 mtree_entry	*mtree_spec_diff_get_spec2_only(mtree_spec_diff *sd);
 mtree_entry	*mtree_spec_diff_get_different(mtree_spec_diff *sd);
 
-mtree_entry_type mtree_parse_type(const char *type);
-long		 mtree_parse_keyword(const char *keyword);
-const char	*mtree_type_string(mtree_entry_type type);
+long		 mtree_keyword_parse(const char *keyword);
+const char	*mtree_keyword_string(long keyword);
+mtree_entry_type mtree_entry_type_parse(const char *type);
+const char	*mtree_entry_type_string(mtree_entry_type type);
 
 #endif /* !_LIBMTREE_MTREE_H_ */
