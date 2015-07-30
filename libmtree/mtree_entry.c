@@ -317,7 +317,7 @@ mtree_entry_set_keywords(mtree_entry *entry, long keywords, int overwrite)
 
 	/* Assign keyword that require stat(2) */
 	if (keywords & MTREE_KEYWORD_MASK_STAT)
-		if (stat(entry->path, &st) == -1)
+		if (lstat(entry->path, &st) == -1)
 			keywords &= ~MTREE_KEYWORD_MASK_STAT;
 
 #define CAN_SET_KEYWORD(kw) \

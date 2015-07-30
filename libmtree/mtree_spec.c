@@ -101,7 +101,7 @@ mtree_spec_read_file(mtree_spec *spec, FILE *fp)
 
 	if (ret == 0) {
 		ret = mtree_reader_finish(spec->reader, &entries);
-		if (ret == 0)
+		if (ret == 0 && entries != NULL)
 			spec->entries = mtree_entry_append(spec->entries, entries);
 	}
 	return (ret);
@@ -128,7 +128,7 @@ mtree_spec_read_fd(mtree_spec * spec, int fd)
 			ret = -1;
 		} else { /* n == 0 */
 			ret = mtree_reader_finish(spec->reader, &entries);
-			if (ret == 0)
+			if (ret == 0 && entries != NULL)
 				spec->entries = mtree_entry_append(spec->entries,
 				    entries);
 			break;
@@ -159,7 +159,7 @@ mtree_spec_read_data_end(mtree_spec *spec)
 	assert(spec != NULL);
 
 	ret = mtree_reader_finish(spec->reader, &entries);
-	if (ret == 0)
+	if (ret == 0 && entries != NULL)
 		spec->entries = mtree_entry_append(spec->entries, entries);
 
 	return (ret);
@@ -241,7 +241,8 @@ mtree_spec_read_path(mtree_spec *spec, const char *path)
 			break;
 		case FTS_DP:
 			/* Leaving a directory */
-			parent = parent->parent;
+			if (parent != NULL)
+				parent = parent->parent;
 			break;
 		case FTS_DOT:
 			break;
@@ -266,7 +267,8 @@ mtree_spec_read_path(mtree_spec *spec, const char *path)
 	}
 
 	if (ret == 0) {
-		spec->entries = mtree_entry_append(spec->entries, first);
+		if (first != NULL)
+			spec->entries = mtree_entry_append(spec->entries, first);
 	} else {
 		int err;
 

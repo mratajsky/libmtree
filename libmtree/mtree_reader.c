@@ -519,11 +519,10 @@ read_mtree_spec(mtree_reader *r, const char *s)
 
 	if (IS_DOTDOT(word)) {
 		/* Only change the parent, keywords are ignored */
-		if (r->parent == NULL || r->parent->parent == NULL) {
-			errno = EINVAL;
-			return (-1);
-		}
-		r->parent = r->parent->parent;
+		if (r->parent != NULL && r->parent->parent != NULL)
+			r->parent = r->parent->parent;
+		else
+			r->parent = NULL;
 		return (0);
 	} else {
 		if (strunvis(name, word) == -1)
