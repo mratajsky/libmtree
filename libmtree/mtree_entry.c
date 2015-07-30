@@ -40,7 +40,8 @@
 #include "mtree_private.h"
 
 /* Mask of all keywords read by stat(2) */
-#define MTREE_KEYWORD_MASK_STAT	(MTREE_KEYWORD_FLAGS |	\
+#define MTREE_KEYWORD_MASK_STAT	(MTREE_KEYWORD_DEVICE |	\
+				 MTREE_KEYWORD_FLAGS |	\
 				 MTREE_KEYWORD_GID |	\
 				 MTREE_KEYWORD_GNAME |	\
 				 MTREE_KEYWORD_INODE |	\
@@ -107,6 +108,9 @@ mtree_entry_free_all(mtree_entry *entries)
 void
 mtree_entry_free_data_items(mtree_entry_data *data)
 {
+
+	if (data->device != NULL)
+		mtree_device_free(data->device);
 
 	free(data->contents);
 	free(data->flags);
@@ -200,6 +204,10 @@ compare_keyword(mtree_entry_data *data1, mtree_entry_data *data2, long keyword)
 		break;
 	case MTREE_KEYWORD_SIZE:
 		if (data1->st_size != data2->st_size)
+			return (1);
+		break;
+	case MTREE_KEYWORD_TAGS:
+		if (strcmp(data1->tags, data2->tags) != 0)
 			return (1);
 		break;
 	case MTREE_KEYWORD_TIME:
@@ -315,6 +323,17 @@ mtree_entry_set_keywords(mtree_entry *entry, long keywords, int overwrite)
 #define CAN_SET_KEYWORD(kw) \
 	((keywords & (kw)) && (overwrite || (entry->data.keywords & (kw)) == 0))
 
+	if (CAN_SET_KEYWORD(MTREE_KEYWORD_DEVICE)) {
+		if (S_ISCHR(st.st_mode) || S_ISBLK(st.st_mode)) {
+			if (entry->data.device == NULL)
+				entry->data.device = mtree_device_create();
+
+			entry->data.device->format = MTREE_DEVICE_NATIVE;
+			entry->data.device->number = st.st_rdev;
+			entry->data.device->fields = MTREE_DEVICE_FIELD_NUMBER;
+		} else
+			keywords &= ~MTREE_KEYWORD_DEVICE;
+	}
 	if (CAN_SET_KEYWORD(MTREE_KEYWORD_FLAGS)) {
 		free(entry->data.flags);
 #ifdef HAVE_FFLAGSTOSTR
@@ -467,6 +486,12 @@ copy_keyword(mtree_entry_data *data, mtree_entry_data *from, long keyword)
 	case MTREE_KEYWORD_CONTENTS:
 		mtree_copy_string(&data->contents, from->contents);
 		break;
+	case MTREE_KEYWORD_DEVICE:
+		if (data->device == NULL)
+			data->device = mtree_device_create();
+
+		mtree_device_copy_data(data->device, from->device);
+		break;
 	case MTREE_KEYWORD_FLAGS:
 		mtree_copy_string(&data->flags, from->flags);
 		break;
@@ -524,6 +549,10 @@ copy_keyword(mtree_entry_data *data, mtree_entry_data *from, long keyword)
 		break;
 	case MTREE_KEYWORD_SIZE:
 		data->st_size = from->st_size;
+		break;
+	case MTREE_KEYWORD_TAGS:
+		// XXX delimit and compare each keyword??
+		mtree_copy_string(&data->tags, from->tags);
 		break;
 	case MTREE_KEYWORD_TIME:
 		data->st_mtim = from->st_mtim;

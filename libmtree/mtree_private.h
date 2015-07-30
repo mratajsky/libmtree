@@ -41,19 +41,37 @@
 #define MTREE_ENTRY_MODE_MASK		(S_ISUID | S_ISGID | S_ISVTX |	\
 					 S_IRWXU | S_IRWXG | S_IRWXO)
 
+struct mtree_device;
 typedef struct _mtree_entry_data	mtree_entry_data;
 typedef struct _mtree_keyword_map	mtree_keyword_map;
 typedef struct _mtree_reader		mtree_reader;
 typedef struct _mtree_writer		mtree_writer;
+
+/*
+ * mtree_device
+ *
+ */
+struct mtree_device {
+	mtree_device_format	 format;	/* device entry format */
+	int			 fields;	/* bit array of filled fields */
+	dev_t			 number;	/* device number */
+	dev_t			 major;		/* major number */
+	dev_t			 minor;		/* minor number */
+	dev_t			 unit;		/* unit number (for bsdos) */
+	dev_t			 subunit;	/* subunit number (for bsdos) */
+	char			*errstr;	/* current error message */
+};
 
 struct _mtree_entry_data {
 	mtree_entry_type type;
 	uint32_t	 cksum;
 	long		 keywords;
 	char		*contents;
+	struct mtree_device	*device;
 	char		*flags;
 	char		*gname;
 	char		*link;
+	char		*tags;
 	char		*uname;
 	char		*md5digest;
 	char		*rmd160digest;
@@ -124,6 +142,13 @@ struct _mtree_keyword_map {
 };
 
 extern const mtree_keyword_map mtree_keywords[];
+
+/* mtree_device.c */
+void			 mtree_device_copy_data(struct mtree_device *dev,
+			    struct mtree_device *from);
+int			 mtree_device_string(struct mtree_device *dev, char **s);
+int			 mtree_device_parse(struct mtree_device *dev, const char *s);
+const char		*mtree_device_error(struct mtree_device *dev);
 
 /* mtree_entry.c */
 mtree_entry	*mtree_entry_create(void);

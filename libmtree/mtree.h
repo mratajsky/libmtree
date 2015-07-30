@@ -32,6 +32,8 @@
 
 #include <inttypes.h>
 
+struct mtree_device;
+
 typedef struct _mtree_entry	mtree_entry;
 typedef struct _mtree_spec	mtree_spec;
 typedef struct _mtree_spec_diff	mtree_spec_diff;
@@ -63,39 +65,60 @@ typedef enum {
 	MTREE_FORMAT_DIFF_DIFFER
 } mtree_format;
 
+typedef enum {
+	MTREE_DEVICE_386BSD,
+	MTREE_DEVICE_4BSD,
+	MTREE_DEVICE_BSDOS,
+	MTREE_DEVICE_FREEBSD,
+	MTREE_DEVICE_HPUX,
+	MTREE_DEVICE_ISC,
+	MTREE_DEVICE_LINUX,
+	MTREE_DEVICE_NATIVE,
+	MTREE_DEVICE_NETBSD,
+	MTREE_DEVICE_OSF1,
+	MTREE_DEVICE_SCO,
+	MTREE_DEVICE_SOLARIS,
+	MTREE_DEVICE_SUNOS,
+	MTREE_DEVICE_SVR3,
+	MTREE_DEVICE_SVR4,
+	MTREE_DEVICE_ULTRIX
+} mtree_device_format;
+
 /*
  * Spec entry keywords
  */
 #define MTREE_KEYWORD_CKSUM		0x00000001
 #define MTREE_KEYWORD_CONTENTS		0x00000002
-#define MTREE_KEYWORD_FLAGS		0x00000004
-#define MTREE_KEYWORD_GID		0x00000008
-#define MTREE_KEYWORD_GNAME		0x00000010
-#define MTREE_KEYWORD_IGNORE		0x00000020
-#define MTREE_KEYWORD_INODE		0x00000040
-#define MTREE_KEYWORD_LINK		0x00000080
-#define MTREE_KEYWORD_MD5		0x00000100
-#define MTREE_KEYWORD_MD5DIGEST		0x00000200
-#define MTREE_KEYWORD_MODE		0x00000400
-#define MTREE_KEYWORD_NLINK		0x00000800
-#define MTREE_KEYWORD_NOCHANGE		0x00001000
-#define MTREE_KEYWORD_OPTIONAL		0x00002000
-#define MTREE_KEYWORD_RIPEMD160DIGEST	0x00004000
-#define MTREE_KEYWORD_RMD160		0x00008000
-#define MTREE_KEYWORD_RMD160DIGEST	0x00010000
-#define MTREE_KEYWORD_SHA1		0x00020000
-#define MTREE_KEYWORD_SHA1DIGEST	0x00040000
-#define MTREE_KEYWORD_SHA256		0x00080000
-#define MTREE_KEYWORD_SHA256DIGEST	0x00100000
-#define MTREE_KEYWORD_SHA384		0x00200000
-#define MTREE_KEYWORD_SHA384DIGEST	0x00400000
-#define MTREE_KEYWORD_SHA512		0x00800000
-#define MTREE_KEYWORD_SHA512DIGEST	0x01000000
-#define MTREE_KEYWORD_SIZE		0x02000000
-#define MTREE_KEYWORD_TIME		0x04000000
-#define MTREE_KEYWORD_TYPE		0x08000000
-#define MTREE_KEYWORD_UID		0x10000000
-#define MTREE_KEYWORD_UNAME		0x20000000
+#define MTREE_KEYWORD_DEVICE		0x00000004
+#define MTREE_KEYWORD_FLAGS		0x00000008
+#define MTREE_KEYWORD_GID		0x00000010
+#define MTREE_KEYWORD_GNAME		0x00000020
+#define MTREE_KEYWORD_IGNORE		0x00000040
+#define MTREE_KEYWORD_INODE		0x00000080
+#define MTREE_KEYWORD_LINK		0x00000100
+#define MTREE_KEYWORD_MD5		0x00000200
+#define MTREE_KEYWORD_MD5DIGEST		0x00000400
+#define MTREE_KEYWORD_MODE		0x00000800
+#define MTREE_KEYWORD_NLINK		0x00001000
+#define MTREE_KEYWORD_NOCHANGE		0x00002000
+#define MTREE_KEYWORD_OPTIONAL		0x00004000
+#define MTREE_KEYWORD_RIPEMD160DIGEST	0x00008000
+#define MTREE_KEYWORD_RMD160		0x00010000
+#define MTREE_KEYWORD_RMD160DIGEST	0x00020000
+#define MTREE_KEYWORD_SHA1		0x00040000
+#define MTREE_KEYWORD_SHA1DIGEST	0x00080000
+#define MTREE_KEYWORD_SHA256		0x00100000
+#define MTREE_KEYWORD_SHA256DIGEST	0x00200000
+#define MTREE_KEYWORD_SHA384		0x00400000
+#define MTREE_KEYWORD_SHA384DIGEST	0x00800000
+#define MTREE_KEYWORD_SHA512		0x01000000
+#define MTREE_KEYWORD_SHA512DIGEST	0x02000000
+#define MTREE_KEYWORD_SIZE		0x04000000
+#define MTREE_KEYWORD_TAGS		0x08000000
+#define MTREE_KEYWORD_TIME		0x10000000
+#define MTREE_KEYWORD_TYPE		0x20000000
+#define MTREE_KEYWORD_UID		0x40000000
+#define MTREE_KEYWORD_UNAME		0x80000000
 
 /*
  * Reading options
@@ -138,8 +161,18 @@ typedef enum {
 #define MTREE_DIGEST_SHA384		0x10
 #define MTREE_DIGEST_SHA512		0x20
 
+/*
+ * Device fields
+ */
+#define MTREE_DEVICE_FIELD_NUMBER	0x01
+#define MTREE_DEVICE_FIELD_MAJOR	0x02
+#define MTREE_DEVICE_FIELD_MINOR	0x04
+#define MTREE_DEVICE_FIELD_UNIT		0x08
+#define MTREE_DEVICE_FIELD_SUBUNIT	0x10
+
 #define MTREE_KEYWORD_MASK_ALL		(MTREE_KEYWORD_CKSUM |		\
 					 MTREE_KEYWORD_CONTENTS |	\
+					 MTREE_KEYWORD_DEVICE |		\
 					 MTREE_KEYWORD_FLAGS |		\
 					 MTREE_KEYWORD_GID |		\
 					 MTREE_KEYWORD_GNAME |		\
@@ -157,6 +190,7 @@ typedef enum {
 					 MTREE_KEYWORD_MASK_SHA384 |	\
 					 MTREE_KEYWORD_MASK_SHA512 |	\
 					 MTREE_KEYWORD_SIZE |		\
+					 MTREE_KEYWORD_TAGS |		\
 					 MTREE_KEYWORD_TIME |		\
 					 MTREE_KEYWORD_TYPE |		\
 					 MTREE_KEYWORD_UID |		\
@@ -185,6 +219,19 @@ typedef enum {
 #define MTREE_KEYWORD_MASK_RMD160	(MTREE_KEYWORD_RMD160 |		\
 					 MTREE_KEYWORD_RMD160DIGEST |	\
 					 MTREE_KEYWORD_RIPEMD160DIGEST)
+
+struct mtree_device	*mtree_device_create(void);
+struct mtree_device	*mtree_device_copy(struct mtree_device *dev);
+void			 mtree_device_free(struct mtree_device *dev);
+mtree_device_format	 mtree_device_get_format(struct mtree_device *dev);
+void			 mtree_device_set_format(struct mtree_device *dev,
+			    mtree_device_format format);
+dev_t			 mtree_device_get_value(struct mtree_device *dev, int field);
+void			 mtree_device_set_value(struct mtree_device *dev, int field,
+			    dev_t value);
+int			 mtree_device_get_fields(struct mtree_device *dev);
+void			 mtree_device_unset_fields(struct mtree_device *dev,
+			    int fields);
 
 mtree_entry 	*mtree_entry_get_first(mtree_entry *entry);
 mtree_entry 	*mtree_entry_get_last(mtree_entry *entry);

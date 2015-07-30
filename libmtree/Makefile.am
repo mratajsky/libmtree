@@ -13,6 +13,7 @@ libmtree_include_HEADERS =			\
 
 libmtree_la_SOURCES =				\
 	mtree.c					\
+	mtree_device.c				\
 	mtree_digest.c				\
 	mtree_entry.c				\
 	mtree_reader.c 				\

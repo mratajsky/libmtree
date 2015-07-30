@@ -270,6 +270,21 @@ read_mtree_keywords(mtree_reader *r, const char *s, mtree_entry_data *data, bool
 			}
 			mtree_copy_string(&data->contents, value);
 			break;
+		case MTREE_KEYWORD_DEVICE:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+			if (data->device == NULL) {
+				data->device = mtree_device_create();
+				if (data->device == NULL)
+					err = errno;
+			}
+			if (data->device != NULL) {
+				if (mtree_device_parse(data->device, value) != 0)
+					err = errno;
+			}
+			break;
 		case MTREE_KEYWORD_FLAGS:
 			if (value == NULL) {
 				err = EINVAL;
@@ -375,6 +390,13 @@ read_mtree_keywords(mtree_reader *r, const char *s, mtree_entry_data *data, bool
 			err = read_number(value, 10, &num, 0, INTMAX_MAX);
 			if (!err)
 				data->st_size = num;
+			break;
+		case MTREE_KEYWORD_TAGS:
+			if (value == NULL) {
+				err = EINVAL;
+				break;
+			}
+			mtree_copy_string(&data->tags, value);
 			break;
 		case MTREE_KEYWORD_TIME:
 			if (value == NULL) {

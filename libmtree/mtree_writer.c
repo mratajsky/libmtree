@@ -176,6 +176,15 @@ write_keyword(mtree_writer *w, mtree_entry_data *data, int *offset, long keyword
 		} else
 			ret = -1;
 		return (ret);
+	case MTREE_KEYWORD_DEVICE:
+		if (data->device != NULL) {
+			if (mtree_device_string(data->device, &s) == 0) {
+				ret = WRITE("device=%s", s);
+				free(s);
+			} else
+				ret = -1;
+		}
+		return (ret);
 	case MTREE_KEYWORD_FLAGS:
 		return WRITE("flags=%s", data->flags);
 	case MTREE_KEYWORD_GID:
@@ -230,6 +239,8 @@ write_keyword(mtree_writer *w, mtree_entry_data *data, int *offset, long keyword
 		return WRITE("sha512digest=%s", data->sha512digest);
 	case MTREE_KEYWORD_SIZE:
 		return WRITE("size=%ju", data->st_size);
+	case MTREE_KEYWORD_TAGS:
+		return WRITE("tags=%s", data->tags);
 	case MTREE_KEYWORD_TIME:
 		return WRITE("time=%jd.%09jd",
 		    data->st_mtim.tv_sec,
