@@ -608,7 +608,7 @@ mtree_entry_copy_all(mtree_entry *entry)
 		entries = mtree_entry_prepend(entries, mtree_entry_copy(entry));
 		entry = entry->next;
 	}
-	return (entries);
+	return (mtree_entry_reverse(entries));
 }
 
 void
@@ -659,20 +659,17 @@ mtree_entry *
 mtree_entry_get_parent(mtree_entry *entry)
 {
 
-	assert(entry != NULL);
-
-	return (entry->parent);
+	return (entry ? entry->parent : NULL);
 }
 
 mtree_entry *
 mtree_entry_get_first(mtree_entry *entry)
 {
 
-	assert(entry != NULL);
-
-	while (entry->prev != NULL)
-		entry = entry->prev;
-
+	if (entry != NULL) {
+		while (entry->prev != NULL)
+			entry = entry->prev;
+	}
 	return (entry);
 }
 
@@ -680,11 +677,10 @@ mtree_entry *
 mtree_entry_get_last(mtree_entry *entry)
 {
 
-	assert(entry != NULL);
-
-	while (entry->next != NULL)
-		entry = entry->next;
-
+	if (entry != NULL) {
+		while (entry->next != NULL)
+			entry = entry->next;
+	}
 	return (entry);
 }
 
@@ -692,18 +688,14 @@ mtree_entry *
 mtree_entry_get_previous(mtree_entry *entry)
 {
 
-	assert(entry != NULL);
-
-	return (entry->prev);
+	return (entry ? entry->prev : NULL);
 }
 
 mtree_entry *
 mtree_entry_get_next(mtree_entry *entry)
 {
 
-	assert(entry != NULL);
-
-	return (entry->next);
+	return (entry ? entry->next : NULL);
 }
 
 mtree_entry_type
