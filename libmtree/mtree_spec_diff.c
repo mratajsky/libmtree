@@ -32,15 +32,15 @@
 #include "mtree_file.h"
 #include "mtree_private.h"
 
-mtree_spec_diff *
-mtree_spec_diff_create(mtree_spec *spec1, mtree_spec *spec2)
+struct mtree_spec_diff *
+mtree_spec_diff_create(struct mtree_spec *spec1, struct mtree_spec *spec2)
 {
-	mtree_spec_diff *sd;
-	mtree_entry *s1only;
-	mtree_entry *s2only;
-	mtree_entry *diff;
-	mtree_entry *e1, *e2;
-	mtree_entry *next;
+	struct mtree_spec_diff	*sd;
+	struct mtree_entry	*s1only;
+	struct mtree_entry	*s2only;
+	struct mtree_entry	*diff;
+	struct mtree_entry	*e1, *e2;
+	struct mtree_entry	*next;
 
 	assert(spec1 != NULL);
 	assert(spec2 != NULL);
@@ -66,7 +66,7 @@ mtree_spec_diff_create(mtree_spec *spec1, mtree_spec *spec2)
 		}
 		e1 = next;
 	}
-	sd = malloc(sizeof(mtree_spec_diff));
+	sd = malloc(sizeof(struct mtree_spec_diff));
 	sd->s1only = mtree_entry_reverse(s1only);
 	sd->s2only = mtree_entry_reverse(s2only);
 	sd->diff   = diff;
@@ -74,7 +74,7 @@ mtree_spec_diff_create(mtree_spec *spec1, mtree_spec *spec2)
 }
 
 void
-mtree_spec_diff_free(mtree_spec_diff *sd)
+mtree_spec_diff_free(struct mtree_spec_diff *sd)
 {
 
 	assert(sd != NULL);
@@ -85,8 +85,8 @@ mtree_spec_diff_free(mtree_spec_diff *sd)
 	free(sd);
 }
 
-mtree_entry *
-mtree_spec_diff_get_spec1_only(mtree_spec_diff *sd)
+struct mtree_entry *
+mtree_spec_diff_get_spec1_only(struct mtree_spec_diff *sd)
 {
 
 	assert(sd != NULL);
@@ -94,8 +94,8 @@ mtree_spec_diff_get_spec1_only(mtree_spec_diff *sd)
 	return (sd->s1only);
 }
 
-mtree_entry *
-mtree_spec_diff_get_spec2_only(mtree_spec_diff *sd)
+struct mtree_entry *
+mtree_spec_diff_get_spec2_only(struct mtree_spec_diff *sd)
 {
 
 	assert(sd != NULL);
@@ -103,8 +103,8 @@ mtree_spec_diff_get_spec2_only(mtree_spec_diff *sd)
 	return (sd->s2only);
 }
 
-mtree_entry *
-mtree_spec_diff_get_different(mtree_spec_diff *sd)
+struct mtree_entry *
+mtree_spec_diff_get_different(struct mtree_spec_diff *sd)
 {
 
 	assert(sd != NULL);
@@ -113,9 +113,9 @@ mtree_spec_diff_get_different(mtree_spec_diff *sd)
 }
 
 int
-mtree_spec_diff_write_file(mtree_spec_diff *sd, FILE *fp)
+mtree_spec_diff_write_file(struct mtree_spec_diff *sd, FILE *fp)
 {
-	mtree_writer *writer;
+	struct mtree_writer *writer;
 	int ret;
 
 	assert(sd != NULL);
@@ -152,9 +152,9 @@ out:
 }
 
 int
-mtree_spec_diff_write_fd(mtree_spec_diff *sd, int fd)
+mtree_spec_diff_write_fd(struct mtree_spec_diff *sd, int fd)
 {
-	mtree_writer *writer;
+	struct mtree_writer *writer;
 	int ret;
 
 	assert(sd != NULL);

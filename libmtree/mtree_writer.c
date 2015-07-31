@@ -83,22 +83,22 @@ static const long write_keywords[] = {
 	MTREE_KEYWORD_TAGS
 };
 
-mtree_writer *
+struct mtree_writer *
 mtree_writer_create(void)
 {
 
-	return calloc(1, sizeof(mtree_writer));
+	return calloc(1, sizeof(struct mtree_writer));
 }
 
 void
-mtree_writer_free(mtree_writer *w)
+mtree_writer_free(struct mtree_writer *w)
 {
 
 	free(w);
 }
 
 static int
-write_fd(mtree_writer *w, const char *s)
+write_fd(struct mtree_writer *w, const char *s)
 {
 	int len;
 	int n;
@@ -122,7 +122,7 @@ write_fd(mtree_writer *w, const char *s)
 }
 
 static int
-write_file(mtree_writer *w, const char *s)
+write_file(struct mtree_writer *w, const char *s)
 {
 
 	if (fputs(s, w->dst.fp) == EOF)
@@ -135,7 +135,7 @@ write_file(mtree_writer *w, const char *s)
  * Write a part of mtree spec output using the configured writer
  */
 static int
-write_part(mtree_writer *w, int *offset, const char *format, ...)
+write_part(struct mtree_writer *w, int *offset, const char *format, ...)
 {
 	char buf[MAX_LINE_LENGTH];
 	va_list args;
@@ -190,8 +190,8 @@ write_part(mtree_writer *w, int *offset, const char *format, ...)
  * Write a single keyword value, optionally with a space before or after it
  */
 static int
-write_keyword(mtree_writer *w, mtree_entry_data *data, int *offset, long keyword,
-    int options)
+write_keyword(struct mtree_writer *w, struct mtree_entry_data *data, int *offset,
+    long keyword, int options)
 {
 	char *path;
 	int ret;
@@ -308,9 +308,9 @@ write_keyword(mtree_writer *w, mtree_entry_data *data, int *offset, long keyword
  * Write /set and update the default values in the writer
  */
 static void
-set_keyword_defaults(mtree_writer *w, mtree_entry *entry)
+set_keyword_defaults(struct mtree_writer *w, struct mtree_entry *entry)
 {
-	mtree_entry	*parent;
+	struct mtree_entry	*parent;
 	mtree_entry_type t[100];
 	uintmax_t	 u[SET_MAX_UID];
 	uintmax_t	 g[SET_MAX_GID];
@@ -413,9 +413,9 @@ set_keyword_defaults(mtree_writer *w, mtree_entry *entry)
 }
 
 static int
-write_entries_diff(mtree_writer *w, mtree_entry *entries)
+write_entries_diff(struct mtree_writer *w, struct mtree_entry *entries)
 {
-	mtree_entry *entry;
+	struct mtree_entry *entry;
 	char *path;
 	size_t i;
 
@@ -473,16 +473,16 @@ write_entries_diff(mtree_writer *w, mtree_entry *entries)
  * Write the spec entries
  */
 static int
-write_entries(mtree_writer *w, mtree_entry *entries)
+write_entries(struct mtree_writer *w, struct mtree_entry *entries)
 {
-	mtree_entry *entry;
-	mtree_entry *dir;
-	char *path;
-	long last_unset = 0;
-	long unset;
-	int kw_options;
-	int offset;
-	int i;
+	struct mtree_entry	*entry;
+	struct mtree_entry	*dir;
+	char			*path;
+	size_t			 i;
+	long			 last_unset;
+	long			 unset;
+	int			 kw_options;
+	int			 offset;
 
 	if (w->format == MTREE_FORMAT_DIFF_FIRST ||
 	    w->format == MTREE_FORMAT_DIFF_SECOND ||
@@ -496,13 +496,14 @@ write_entries(mtree_writer *w, mtree_entry *entries)
 
 	w->indent = 0;
 
-	dir   = NULL;
-	entry = entries;
+	dir	= NULL;
+	entry	= entries;
+	last_unset = 0;
 	while (entry != NULL) {
 		offset = 0;
 
 		if (dir != NULL && entry->parent != NULL) {
-			mtree_entry *parent;
+			struct mtree_entry *parent;
 			/*
 			 * Go up to the level of current entry's parent
 			 */
@@ -617,7 +618,7 @@ write_entries(mtree_writer *w, mtree_entry *entries)
 }
 
 int
-mtree_writer_write_file(mtree_writer *w, mtree_entry *entries, FILE *fp)
+mtree_writer_write_file(struct mtree_writer *w, struct mtree_entry *entries, FILE *fp)
 {
 
 	assert(w != NULL);
@@ -629,7 +630,7 @@ mtree_writer_write_file(mtree_writer *w, mtree_entry *entries, FILE *fp)
 }
 
 int
-mtree_writer_write_fd(mtree_writer *w, mtree_entry *entries, int fd)
+mtree_writer_write_fd(struct mtree_writer *w, struct mtree_entry *entries, int fd)
 {
 
 	assert(w != NULL);
@@ -641,7 +642,7 @@ mtree_writer_write_fd(mtree_writer *w, mtree_entry *entries, int fd)
 }
 
 void
-mtree_writer_set_format(mtree_writer *w, mtree_format format)
+mtree_writer_set_format(struct mtree_writer *w, mtree_format format)
 {
 
 	assert(w != NULL);
@@ -650,7 +651,7 @@ mtree_writer_set_format(mtree_writer *w, mtree_format format)
 }
 
 void
-mtree_writer_set_options(mtree_writer *w, int options)
+mtree_writer_set_options(struct mtree_writer *w, int options)
 {
 
 	assert(w != NULL);

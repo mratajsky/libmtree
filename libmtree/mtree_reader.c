@@ -42,15 +42,15 @@
 #define	IS_DOT(nm)		((nm)[0] == '.' && (nm)[1] == '\0')
 #define	IS_DOTDOT(nm)		((nm)[0] == '.' && (nm)[1] == '.' && (nm)[2] == '\0')
 
-mtree_reader *
+struct mtree_reader *
 mtree_reader_create(void)
 {
 
-	return calloc(1, sizeof(mtree_reader));
+	return calloc(1, sizeof(struct mtree_reader));
 }
 
 void
-mtree_reader_free(mtree_reader *r)
+mtree_reader_free(struct mtree_reader *r)
 {
 
 	assert(r != NULL);
@@ -61,9 +61,9 @@ mtree_reader_free(mtree_reader *r)
 }
 
 void
-mtree_reader_reset(mtree_reader *r)
+mtree_reader_reset(struct mtree_reader *r)
 {
-	mtree_entry *entry, *next;
+	struct mtree_entry *entry, *next;
 
 	assert(r != NULL);
 
@@ -212,7 +212,8 @@ read_number(const char *tok, u_int base, intmax_t *res, intmax_t min,
 }
 
 static int
-read_mtree_keywords(mtree_reader *r, const char *s, mtree_entry_data *data, bool set)
+read_mtree_keywords(struct mtree_reader *r, const char *s,
+    struct mtree_entry_data *data, bool set)
 {
 	char word[MAX_LINE_LENGTH];
 	char *value, *p;
@@ -457,7 +458,7 @@ read_mtree_keywords(mtree_reader *r, const char *s, mtree_entry_data *data, bool
 }
 
 static int
-read_mtree_command(mtree_reader *r, const char *s)
+read_mtree_command(struct mtree_reader *r, const char *s)
 {
 	char cmd[10];
 	int ret;
@@ -477,7 +478,7 @@ read_mtree_command(mtree_reader *r, const char *s)
 }
 
 static char *
-create_path(mtree_entry *entry)
+create_path(struct mtree_entry *entry)
 {
 	char buf[MAX_LINE_LENGTH];
 	size_t len;
@@ -505,9 +506,9 @@ create_path(mtree_entry *entry)
 }
 
 static int
-read_mtree_spec(mtree_reader *r, const char *s)
+read_mtree_spec(struct mtree_reader *r, const char *s)
 {
-	mtree_entry *entry;
+	struct mtree_entry *entry;
 	char word[MAXPATHLEN];
 	char name[MAXPATHLEN];
 	char *p;
@@ -589,7 +590,7 @@ read_mtree_spec(mtree_reader *r, const char *s)
 }
 
 static int
-parse_line(mtree_reader *r, const char *s)
+parse_line(struct mtree_reader *r, const char *s)
 {
 	int ret;
 
@@ -610,7 +611,7 @@ parse_line(mtree_reader *r, const char *s)
 }
 
 int
-mtree_reader_add(mtree_reader *r, const char *s, int len)
+mtree_reader_add(struct mtree_reader *r, const char *s, int len)
 {
 	char buf[MAX_LINE_LENGTH];
 	int ret;
@@ -712,7 +713,7 @@ mtree_reader_add(mtree_reader *r, const char *s, int len)
 }
 
 int
-mtree_reader_finish(mtree_reader *r, mtree_entry **entries)
+mtree_reader_finish(struct mtree_reader *r, struct mtree_entry **entries)
 {
 	int ret;
 
@@ -739,13 +740,12 @@ mtree_reader_finish(mtree_reader *r, mtree_entry **entries)
 		*entries = r->entries;
 		r->entries = NULL;
 	}
-
 	mtree_reader_reset(r);
 	return (ret);
 }
 
 void
-mtree_reader_set_options(mtree_reader *r, int options)
+mtree_reader_set_options(struct mtree_reader *r, int options)
 {
 
 	assert(r != NULL);
@@ -754,7 +754,7 @@ mtree_reader_set_options(mtree_reader *r, int options)
 }
 
 void
-mtree_reader_set_keywords(mtree_reader *r, long keywords)
+mtree_reader_set_keywords(struct mtree_reader *r, long keywords)
 {
 
 	assert(r != NULL);

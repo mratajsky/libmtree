@@ -42,9 +42,12 @@
 					 S_IRWXU | S_IRWXG | S_IRWXO)
 
 struct mtree_device;
-typedef struct _mtree_entry_data	mtree_entry_data;
-typedef struct _mtree_reader		mtree_reader;
-typedef struct _mtree_writer		mtree_writer;
+struct mtree_entry;
+struct mtree_entry_data;
+struct mtree_spec;
+struct mtree_spec_diff;
+struct mtree_reader;
+struct mtree_writer;
 
 /*
  * mtree_device
@@ -61,7 +64,7 @@ struct mtree_device {
 	char			*errstr;	/* current error message */
 };
 
-struct _mtree_entry_data {
+struct mtree_entry_data {
 	mtree_entry_type type;
 	uint32_t	 cksum;
 	long		 keywords;
@@ -88,49 +91,49 @@ struct _mtree_entry_data {
 	uid_t		st_uid;
 };
 
-struct _mtree_entry {
-	mtree_entry 	*prev;
-	mtree_entry 	*next;
-	mtree_entry 	*parent;
+struct mtree_entry {
+	struct mtree_entry 	*prev;
+	struct mtree_entry 	*next;
+	struct mtree_entry 	*parent;
 	char            *path;
 	char            *name;
-	mtree_entry_data data;
+	struct mtree_entry_data data;
 };
 
-struct _mtree_reader {
-	mtree_entry 	*entries;
-	mtree_entry 	*parent;
-	mtree_entry_data defaults;
+struct mtree_reader {
+	struct mtree_entry 	*entries;
+	struct mtree_entry 	*parent;
+	struct mtree_entry_data defaults;
 	char 		*buf;
 	int   		 buflen;
 	long		 keywords;
 	int		 options;
 };
 
-typedef int (*writer_func)(mtree_writer *, const char *);
-struct _mtree_writer {
-	mtree_entry 	*entries;
+typedef int (*writer_func)(struct mtree_writer *, const char *);
+struct mtree_writer {
+	struct mtree_entry 	*entries;
 	union {
 		FILE	*fp;
 		int	 fd;
 	} dst;
-	mtree_entry_data defaults;
+	struct mtree_entry_data defaults;
 	mtree_format	 format;
 	int		 options;
 	int		 indent;
 	writer_func	 writer;
 };
 
-struct _mtree_spec_diff {
-	mtree_entry	*s1only;
-	mtree_entry	*s2only;
-	mtree_entry	*diff;
+struct mtree_spec_diff {
+	struct mtree_entry	*s1only;
+	struct mtree_entry	*s2only;
+	struct mtree_entry	*diff;
 };
 
-struct _mtree_spec {
-	mtree_entry 	*entries;
-	mtree_reader 	*reader;
-	mtree_writer 	*writer;
+struct mtree_spec {
+	struct mtree_entry 	*entries;
+	struct mtree_reader 	*reader;
+	struct mtree_writer 	*writer;
 	long		 read_keywords;
 	int		 read_options;
 };
@@ -154,43 +157,51 @@ int			 mtree_device_parse(struct mtree_device *dev, const char *s);
 const char		*mtree_device_error(struct mtree_device *dev);
 
 /* mtree_entry.c */
-mtree_entry	*mtree_entry_create(void);
-mtree_entry	*mtree_entry_create_from_ftsent(FTSENT *ftsent, long keywords);
-void		 mtree_entry_free(mtree_entry *entry);
-void		 mtree_entry_free_all(mtree_entry *entries);
-void		 mtree_entry_free_data_items(mtree_entry_data *data);
-mtree_entry	*mtree_entry_copy(mtree_entry *entry);
-mtree_entry	*mtree_entry_copy_all(mtree_entry *entry);
-void		 mtree_entry_copy_missing_keywords(mtree_entry *entry, mtree_entry_data *from);
-int		 mtree_entry_compare(mtree_entry *entry1, mtree_entry *entry2,
-		    long *diff);
-int		 mtree_entry_compare_keyword(mtree_entry *entry1, mtree_entry *entry2,
-		    long keyword);
-int		 mtree_entry_data_compare_keyword(mtree_entry_data *data1, mtree_entry_data *data2,
-		    long keyword);
-mtree_entry 	*mtree_entry_prepend(mtree_entry *entry, mtree_entry *child);
-mtree_entry 	*mtree_entry_append(mtree_entry *entry, mtree_entry *child);
-mtree_entry	*mtree_entry_reverse(mtree_entry *entry);
-mtree_entry	*mtree_entry_unlink(mtree_entry *head, mtree_entry *entry);
+struct mtree_entry	*mtree_entry_create(void);
+struct mtree_entry	*mtree_entry_create_from_ftsent(FTSENT *ftsent, long keywords);
+void			 mtree_entry_free(struct mtree_entry *entry);
+void			 mtree_entry_free_all(struct mtree_entry *entries);
+void			 mtree_entry_free_data_items(struct mtree_entry_data *data);
+struct mtree_entry	*mtree_entry_copy(struct mtree_entry *entry);
+struct mtree_entry	*mtree_entry_copy_all(struct mtree_entry *entry);
+void			 mtree_entry_copy_missing_keywords(struct mtree_entry *entry,
+			    struct mtree_entry_data *from);
+int			 mtree_entry_compare(struct mtree_entry *entry1,
+			    struct mtree_entry *entry2, long *diff);
+int			 mtree_entry_compare_keyword(struct mtree_entry *entry1,
+			    struct mtree_entry *entry2, long keyword);
+int			 mtree_entry_data_compare_keyword(struct mtree_entry_data *data1,
+			    struct mtree_entry_data *data2, long keyword);
+struct mtree_entry 	*mtree_entry_prepend(struct mtree_entry *entry,
+			    struct mtree_entry *child);
+struct mtree_entry 	*mtree_entry_append(struct mtree_entry *entry,
+			    struct mtree_entry *child);
+struct mtree_entry	*mtree_entry_reverse(struct mtree_entry *entry);
+struct mtree_entry	*mtree_entry_unlink(struct mtree_entry *head,
+			    struct mtree_entry *entry);
 
 /* mtree_reader.c */
-mtree_reader	*mtree_reader_create(void);
-void		 mtree_reader_free(mtree_reader *r);
-void		 mtree_reader_reset(mtree_reader *r);
-int		 mtree_reader_add(mtree_reader *r, const char *s, int len);
-int		 mtree_reader_finish(mtree_reader *r, mtree_entry **entries);
-void		 mtree_reader_set_options(mtree_reader *r, int options);
-void		 mtree_reader_set_keywords(mtree_reader *r, long keywords);
+struct mtree_reader	*mtree_reader_create(void);
+void			 mtree_reader_free(struct mtree_reader *r);
+void			 mtree_reader_reset(struct mtree_reader *r);
+int			 mtree_reader_add(struct mtree_reader *r, const char *s,
+			    int len);
+int			 mtree_reader_finish(struct mtree_reader *r,
+			    struct mtree_entry **entries);
+void			 mtree_reader_set_options(struct mtree_reader *r, int options);
+void			 mtree_reader_set_keywords(struct mtree_reader *r,
+			    long keywords);
 
 /* mtree_writer.c */
-mtree_writer	*mtree_writer_create(void);
-void		 mtree_writer_free(mtree_writer *w);
-int		 mtree_writer_write_file(mtree_writer *w, mtree_entry *entries,
-		    FILE *fp);
-int		 mtree_writer_write_fd(mtree_writer *w, mtree_entry *entries,
-		    int fd);
-void		 mtree_writer_set_format(mtree_writer *w, mtree_format format);
-void		 mtree_writer_set_options(mtree_writer *w, int options);
+struct mtree_writer	*mtree_writer_create(void);
+void			 mtree_writer_free(struct mtree_writer *w);
+int			 mtree_writer_write_file(struct mtree_writer *w,
+			    struct mtree_entry *entries, FILE *fp);
+int			 mtree_writer_write_fd(struct mtree_writer *w,
+			    struct mtree_entry *entries, int fd);
+void			 mtree_writer_set_format(struct mtree_writer *w,
+			    mtree_format format);
+void			 mtree_writer_set_options(struct mtree_writer *w, int options);
 
 /* mtree_utils.c */
 int		 mtree_copy_string(char **dst, const char *src);

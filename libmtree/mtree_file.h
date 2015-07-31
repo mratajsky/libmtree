@@ -33,13 +33,13 @@
 char	*mtree_digest_file(int type, const char *path);
 int	 mtree_digest_file_crc32(const char *path, uint32_t *crc, uint32_t *crc_total);
 
-int	 mtree_spec_read_file(mtree_spec *spec, FILE *fp);
-int	 mtree_spec_read_fd(mtree_spec *spec, int fd);
+int	 mtree_spec_read_file(struct mtree_spec *spec, FILE *fp);
+int	 mtree_spec_read_fd(struct mtree_spec *spec, int fd);
 
-int	 mtree_spec_write_file(mtree_spec *spec, FILE *fp);
-int	 mtree_spec_write_fd(mtree_spec *spec, int fd);
+int	 mtree_spec_write_file(struct mtree_spec *spec, FILE *fp);
+int	 mtree_spec_write_fd(struct mtree_spec *spec, int fd);
 
-int	 mtree_spec_diff_write_file(mtree_spec_diff *sd, FILE *fp);
-int	 mtree_spec_diff_write_fd(mtree_spec_diff *sd, int fd);
+int	 mtree_spec_diff_write_file(struct mtree_spec_diff *sd, FILE *fp);
+int	 mtree_spec_diff_write_fd(struct mtree_spec_diff *sd, int fd);
 
 #endif /* !_LIBMTREE_MTREE_FILE_H_ */

@@ -45,12 +45,12 @@
 # define FTS_CONST
 #endif
 
-mtree_spec *
+struct mtree_spec *
 mtree_spec_create(void)
 {
-	mtree_spec *spec;
+	struct mtree_spec *spec;
 
-	spec = calloc(1, sizeof(mtree_spec));
+	spec = calloc(1, sizeof(struct mtree_spec));
 
 	spec->reader = mtree_reader_create();
 	spec->writer = mtree_writer_create();
@@ -60,7 +60,7 @@ mtree_spec_create(void)
 }
 
 void
-mtree_spec_free(mtree_spec * spec)
+mtree_spec_free(struct mtree_spec * spec)
 {
 
 	assert(spec != NULL);
@@ -71,7 +71,7 @@ mtree_spec_free(mtree_spec * spec)
 }
 
 void
-mtree_spec_reset(mtree_spec *spec)
+mtree_spec_reset(struct mtree_spec *spec)
 {
 
 	assert(spec != NULL);
@@ -83,9 +83,9 @@ mtree_spec_reset(mtree_spec *spec)
 }
 
 int
-mtree_spec_read_file(mtree_spec *spec, FILE *fp)
+mtree_spec_read_file(struct mtree_spec *spec, FILE *fp)
 {
-	mtree_entry *entries;
+	struct mtree_entry *entries;
 	char buf[512];
 	int ret;
 
@@ -108,9 +108,9 @@ mtree_spec_read_file(mtree_spec *spec, FILE *fp)
 }
 
 int
-mtree_spec_read_fd(mtree_spec * spec, int fd)
+mtree_spec_read_fd(struct mtree_spec * spec, int fd)
 {
-	mtree_entry *entries;
+	struct mtree_entry *entries;
 	char buf[512];
 	ssize_t n;
 	int ret;
@@ -140,7 +140,7 @@ mtree_spec_read_fd(mtree_spec * spec, int fd)
 }
 
 int
-mtree_spec_read_data(mtree_spec * spec, const char *data, int len)
+mtree_spec_read_data(struct mtree_spec * spec, const char *data, int len)
 {
 
 	assert(spec != NULL);
@@ -151,9 +151,9 @@ mtree_spec_read_data(mtree_spec * spec, const char *data, int len)
 }
 
 int
-mtree_spec_read_data_end(mtree_spec *spec)
+mtree_spec_read_data_end(struct mtree_spec *spec)
 {
-	mtree_entry *entries;
+	struct mtree_entry *entries;
 	int ret;
 
 	assert(spec != NULL);
@@ -179,12 +179,12 @@ ftsentcmp(const FTSENT * FTS_CONST *a, const FTSENT * FTS_CONST *b)
 }
 
 int
-mtree_spec_read_path(mtree_spec *spec, const char *path)
+mtree_spec_read_path(struct mtree_spec *spec, const char *path)
 {
 	FTS *fts;
 	FTSENT *ftsent;
-	mtree_entry *first, *entry;
-	mtree_entry *parent;
+	struct mtree_entry *first, *entry;
+	struct mtree_entry *parent;
 	struct stat st;
 	char *argv[2];
 	int ftsoptions;
@@ -280,7 +280,7 @@ mtree_spec_read_path(mtree_spec *spec, const char *path)
 }
 
 int
-mtree_spec_write_file(mtree_spec *spec, FILE *fp)
+mtree_spec_write_file(struct mtree_spec *spec, FILE *fp)
 {
 
 	assert(spec != NULL);
@@ -290,7 +290,7 @@ mtree_spec_write_file(mtree_spec *spec, FILE *fp)
 }
 
 int
-mtree_spec_write_fd(mtree_spec *spec, int fd)
+mtree_spec_write_fd(struct mtree_spec *spec, int fd)
 {
 
 	assert(spec != NULL);
@@ -299,8 +299,8 @@ mtree_spec_write_fd(mtree_spec *spec, int fd)
 	return (mtree_writer_write_fd(spec->writer, spec->entries, fd));
 }
 
-mtree_entry *
-mtree_spec_get_entries(mtree_spec *spec)
+struct mtree_entry *
+mtree_spec_get_entries(struct mtree_spec *spec)
 {
 
 	assert(spec != NULL);
@@ -309,7 +309,7 @@ mtree_spec_get_entries(mtree_spec *spec)
 }
 
 void
-mtree_spec_set_read_options(mtree_spec *spec, int options)
+mtree_spec_set_read_options(struct mtree_spec *spec, int options)
 {
 
 	assert(spec != NULL);
@@ -319,7 +319,7 @@ mtree_spec_set_read_options(mtree_spec *spec, int options)
 }
 
 void
-mtree_spec_set_read_keywords(mtree_spec *spec, long keywords)
+mtree_spec_set_read_keywords(struct mtree_spec *spec, long keywords)
 {
 
 	assert(spec != NULL);
@@ -329,7 +329,7 @@ mtree_spec_set_read_keywords(mtree_spec *spec, long keywords)
 }
 
 void
-mtree_spec_set_write_format(mtree_spec *spec, mtree_format format)
+mtree_spec_set_write_format(struct mtree_spec *spec, mtree_format format)
 {
 
 	assert(spec != NULL);
@@ -338,7 +338,7 @@ mtree_spec_set_write_format(mtree_spec *spec, mtree_format format)
 }
 
 void
-mtree_spec_set_write_options(mtree_spec *spec, int options)
+mtree_spec_set_write_options(struct mtree_spec *spec, int options)
 {
 
 	assert(spec != NULL);

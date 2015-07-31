@@ -54,20 +54,20 @@
 				 MTREE_KEYWORD_UID |	\
 				 MTREE_KEYWORD_UNAME)
 
-mtree_entry *
+struct mtree_entry *
 mtree_entry_create(void)
 {
-	mtree_entry *entry;
+	struct mtree_entry *entry;
 
-	entry = calloc(1, sizeof(mtree_entry));
+	entry = calloc(1, sizeof(struct mtree_entry));
 
 	return (entry);
 }
 
-mtree_entry *
+struct mtree_entry *
 mtree_entry_create_from_ftsent(FTSENT *ftsent, long keywords)
 {
-	mtree_entry *entry;
+	struct mtree_entry *entry;
 
 	assert (ftsent != NULL);
 
@@ -84,7 +84,7 @@ mtree_entry_create_from_ftsent(FTSENT *ftsent, long keywords)
 }
 
 void
-mtree_entry_free(mtree_entry *entry)
+mtree_entry_free(struct mtree_entry *entry)
 {
 
 	mtree_entry_free_data_items(&entry->data);
@@ -94,9 +94,9 @@ mtree_entry_free(mtree_entry *entry)
 }
 
 void
-mtree_entry_free_all(mtree_entry *entries)
+mtree_entry_free_all(struct mtree_entry *entries)
 {
-	mtree_entry *next;
+	struct mtree_entry *next;
 
 	while (entries != NULL) {
 		next = entries->next;
@@ -106,7 +106,7 @@ mtree_entry_free_all(mtree_entry *entries)
 }
 
 void
-mtree_entry_free_data_items(mtree_entry_data *data)
+mtree_entry_free_data_items(struct mtree_entry_data *data)
 {
 
 	if (data->device != NULL)
@@ -126,7 +126,8 @@ mtree_entry_free_data_items(mtree_entry_data *data)
 }
 
 static int
-compare_keyword(mtree_entry_data *data1, mtree_entry_data *data2, long keyword)
+compare_keyword(struct mtree_entry_data *data1, struct mtree_entry_data *data2,
+    long keyword)
 {
 
 	if ((data1->keywords & keyword) != (data2->keywords & keyword))
@@ -233,7 +234,8 @@ compare_keyword(mtree_entry_data *data1, mtree_entry_data *data2, long keyword)
 }
 
 int
-mtree_entry_compare(mtree_entry *entry1, mtree_entry *entry2, long *diff)
+mtree_entry_compare(struct mtree_entry *entry1, struct mtree_entry *entry2,
+    long *diff)
 {
 	long differ;
 	int ret;
@@ -285,7 +287,8 @@ mtree_entry_compare(mtree_entry *entry1, mtree_entry *entry2, long *diff)
 }
 
 int
-mtree_entry_compare_keyword(mtree_entry *entry1, mtree_entry *entry2, long keyword)
+mtree_entry_compare_keyword(struct mtree_entry *entry1, struct mtree_entry *entry2,
+    long keyword)
 {
 
 	assert(entry1 != NULL);
@@ -295,8 +298,8 @@ mtree_entry_compare_keyword(mtree_entry *entry1, mtree_entry *entry2, long keywo
 }
 
 int
-mtree_entry_data_compare_keyword(mtree_entry_data *data1, mtree_entry_data *data2,
-    long keyword)
+mtree_entry_data_compare_keyword(struct mtree_entry_data *data1,
+    struct mtree_entry_data *data2, long keyword)
 {
 
 	assert(data1 != NULL);
@@ -476,7 +479,8 @@ mtree_entry_set_keywords(mtree_entry *entry, long keywords, int overwrite)
 }
 
 static void
-copy_keyword(mtree_entry_data *data, mtree_entry_data *from, long keyword)
+copy_keyword(struct mtree_entry_data *data, struct mtree_entry_data *from,
+    long keyword)
 {
 
 	switch (keyword) {
@@ -574,10 +578,10 @@ copy_keyword(mtree_entry_data *data, mtree_entry_data *from, long keyword)
 	data->keywords |= keyword;
 }
 
-mtree_entry *
-mtree_entry_copy(mtree_entry *entry)
+struct mtree_entry *
+mtree_entry_copy(struct mtree_entry *entry)
 {
-	mtree_entry *copy;
+	struct mtree_entry *copy;
 	int i;
 
 	assert(entry != NULL);
@@ -598,10 +602,10 @@ mtree_entry_copy(mtree_entry *entry)
 	return (copy);
 }
 
-mtree_entry *
-mtree_entry_copy_all(mtree_entry *entry)
+struct mtree_entry *
+mtree_entry_copy_all(struct mtree_entry *entry)
 {
-	mtree_entry *entries;
+	struct mtree_entry *entries;
 
 	entries = NULL;
 	while (entry != NULL) {
@@ -612,7 +616,8 @@ mtree_entry_copy_all(mtree_entry *entry)
 }
 
 void
-mtree_entry_copy_missing_keywords(mtree_entry *entry, mtree_entry_data *from)
+mtree_entry_copy_missing_keywords(struct mtree_entry *entry,
+    struct mtree_entry_data *from)
 {
 	int i;
 
@@ -629,7 +634,7 @@ mtree_entry_copy_missing_keywords(mtree_entry *entry, mtree_entry_data *from)
 }
 
 const char *
-mtree_entry_get_name(mtree_entry *entry)
+mtree_entry_get_name(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -638,7 +643,7 @@ mtree_entry_get_name(mtree_entry *entry)
 }
 
 const char *
-mtree_entry_get_path(mtree_entry *entry)
+mtree_entry_get_path(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -647,7 +652,7 @@ mtree_entry_get_path(mtree_entry *entry)
 }
 
 long
-mtree_entry_get_keywords(mtree_entry *entry)
+mtree_entry_get_keywords(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -655,15 +660,15 @@ mtree_entry_get_keywords(mtree_entry *entry)
 	return (entry->data.keywords);
 }
 
-mtree_entry *
-mtree_entry_get_parent(mtree_entry *entry)
+struct mtree_entry *
+mtree_entry_get_parent(struct mtree_entry *entry)
 {
 
 	return (entry ? entry->parent : NULL);
 }
 
-mtree_entry *
-mtree_entry_get_first(mtree_entry *entry)
+struct mtree_entry *
+mtree_entry_get_first(struct mtree_entry *entry)
 {
 
 	if (entry != NULL) {
@@ -673,8 +678,8 @@ mtree_entry_get_first(mtree_entry *entry)
 	return (entry);
 }
 
-mtree_entry *
-mtree_entry_get_last(mtree_entry *entry)
+struct mtree_entry *
+mtree_entry_get_last(struct mtree_entry *entry)
 {
 
 	if (entry != NULL) {
@@ -684,22 +689,22 @@ mtree_entry_get_last(mtree_entry *entry)
 	return (entry);
 }
 
-mtree_entry *
-mtree_entry_get_previous(mtree_entry *entry)
+struct mtree_entry *
+mtree_entry_get_previous(struct mtree_entry *entry)
 {
 
 	return (entry ? entry->prev : NULL);
 }
 
-mtree_entry *
-mtree_entry_get_next(mtree_entry *entry)
+struct mtree_entry *
+mtree_entry_get_next(struct mtree_entry *entry)
 {
 
 	return (entry ? entry->next : NULL);
 }
 
 mtree_entry_type
-mtree_entry_get_type(mtree_entry *entry)
+mtree_entry_get_type(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -708,7 +713,7 @@ mtree_entry_get_type(mtree_entry *entry)
 }
 
 uint32_t
-mtree_entry_get_cksum(mtree_entry *entry)
+mtree_entry_get_cksum(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -717,7 +722,7 @@ mtree_entry_get_cksum(mtree_entry *entry)
 }
 
 gid_t
-mtree_entry_get_gid(mtree_entry *entry)
+mtree_entry_get_gid(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -726,7 +731,7 @@ mtree_entry_get_gid(mtree_entry *entry)
 }
 
 const char *
-mtree_entry_get_gname(mtree_entry *entry)
+mtree_entry_get_gname(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -734,8 +739,17 @@ mtree_entry_get_gname(mtree_entry *entry)
 	return (entry->data.gname);
 }
 
+ino_t
+mtree_entry_get_inode(struct mtree_entry *entry)
+{
+
+	assert(entry != NULL);
+
+	return (entry->data.st_ino);
+}
+
 const char *
-mtree_entry_get_link(mtree_entry *entry)
+mtree_entry_get_link(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -744,7 +758,7 @@ mtree_entry_get_link(mtree_entry *entry)
 }
 
 const char *
-mtree_entry_get_md5digest(mtree_entry *entry)
+mtree_entry_get_md5digest(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -753,7 +767,7 @@ mtree_entry_get_md5digest(mtree_entry *entry)
 }
 
 mode_t
-mtree_entry_get_mode(mtree_entry *entry)
+mtree_entry_get_mode(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -762,7 +776,7 @@ mtree_entry_get_mode(mtree_entry *entry)
 }
 
 nlink_t
-mtree_entry_get_nlink(mtree_entry *entry)
+mtree_entry_get_nlink(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -771,7 +785,7 @@ mtree_entry_get_nlink(mtree_entry *entry)
 }
 
 const char *
-mtree_entry_get_rmd160digest(mtree_entry *entry)
+mtree_entry_get_rmd160digest(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -780,7 +794,7 @@ mtree_entry_get_rmd160digest(mtree_entry *entry)
 }
 
 const char *
-mtree_entry_get_sha1digest(mtree_entry *entry)
+mtree_entry_get_sha1digest(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -789,7 +803,7 @@ mtree_entry_get_sha1digest(mtree_entry *entry)
 }
 
 const char *
-mtree_entry_get_sha256digest(mtree_entry *entry)
+mtree_entry_get_sha256digest(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -798,7 +812,7 @@ mtree_entry_get_sha256digest(mtree_entry *entry)
 }
 
 const char *
-mtree_entry_get_sha384digest(mtree_entry *entry)
+mtree_entry_get_sha384digest(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -807,7 +821,7 @@ mtree_entry_get_sha384digest(mtree_entry *entry)
 }
 
 const char *
-mtree_entry_get_sha512digest(mtree_entry *entry)
+mtree_entry_get_sha512digest(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -816,7 +830,7 @@ mtree_entry_get_sha512digest(mtree_entry *entry)
 }
 
 off_t
-mtree_entry_get_size(mtree_entry *entry)
+mtree_entry_get_size(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -825,7 +839,7 @@ mtree_entry_get_size(mtree_entry *entry)
 }
 
 struct timespec *
-mtree_entry_get_time(mtree_entry *entry)
+mtree_entry_get_time(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -834,7 +848,7 @@ mtree_entry_get_time(mtree_entry *entry)
 }
 
 uid_t
-mtree_entry_get_uid(mtree_entry *entry)
+mtree_entry_get_uid(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -843,7 +857,7 @@ mtree_entry_get_uid(mtree_entry *entry)
 }
 
 const char *
-mtree_entry_get_uname(mtree_entry *entry)
+mtree_entry_get_uname(struct mtree_entry *entry)
 {
 
 	assert(entry != NULL);
@@ -851,8 +865,8 @@ mtree_entry_get_uname(mtree_entry *entry)
 	return (entry->data.uname);
 }
 
-mtree_entry *
-mtree_entry_find_path(mtree_entry *entry, const char *path)
+struct mtree_entry *
+mtree_entry_find_path(struct mtree_entry *entry, const char *path)
 {
 
 	assert(entry != NULL);
@@ -867,8 +881,8 @@ mtree_entry_find_path(mtree_entry *entry, const char *path)
 	return (NULL);
 }
 
-mtree_entry *
-mtree_entry_prepend(mtree_entry *entry, mtree_entry *child)
+struct mtree_entry *
+mtree_entry_prepend(struct mtree_entry *entry, struct mtree_entry *child)
 {
 
 	assert(child != NULL);
@@ -885,15 +899,14 @@ mtree_entry_prepend(mtree_entry *entry, mtree_entry *child)
 	return (child);
 }
 
-mtree_entry *
-mtree_entry_append(mtree_entry *entry, mtree_entry *child)
+struct mtree_entry *
+mtree_entry_append(struct mtree_entry *entry, struct mtree_entry *child)
 {
+	struct mtree_entry *last;
 
 	assert(child != NULL);
 
 	if (entry != NULL) {
-		mtree_entry *last;
-
 		last = mtree_entry_get_last(entry);
 		last->next  = child;
 		child->prev = last;
@@ -904,10 +917,10 @@ mtree_entry_append(mtree_entry *entry, mtree_entry *child)
 	return (entry);
 }
 
-mtree_entry *
-mtree_entry_reverse(mtree_entry *entry)
+struct mtree_entry *
+mtree_entry_reverse(struct mtree_entry *entry)
 {
-	mtree_entry *last;
+	struct mtree_entry *last;
 
 	last = NULL;
 	while (entry != NULL) {
@@ -919,8 +932,8 @@ mtree_entry_reverse(mtree_entry *entry)
 	return (last);
 }
 
-mtree_entry *
-mtree_entry_unlink(mtree_entry *head, mtree_entry *entry)
+struct mtree_entry *
+mtree_entry_unlink(struct mtree_entry *head, struct mtree_entry *entry)
 {
 
 	assert(head != NULL);
