@@ -46,6 +46,7 @@ struct mtree_entry;
 struct mtree_entry_data;
 struct mtree_spec;
 struct mtree_spec_diff;
+struct mtree_trie;
 struct mtree_reader;
 struct mtree_writer;
 
@@ -138,6 +139,15 @@ struct mtree_spec {
 	int		 read_options;
 };
 
+struct mtree_trie {
+	void			*item;
+	char			*key;
+	size_t			 key_len;
+	size_t			 bit;
+	struct mtree_trie	*left;
+	struct mtree_trie	*right;
+};
+
 /*
  * mtree_keyword_map
  * Assists conversion between keyword names and constants
@@ -202,6 +212,14 @@ int			 mtree_writer_write_fd(struct mtree_writer *w,
 void			 mtree_writer_set_format(struct mtree_writer *w,
 			    mtree_format format);
 void			 mtree_writer_set_options(struct mtree_writer *w, int options);
+
+/* mtree_trie.c */
+struct mtree_trie	*mtree_trie_create(void);
+void			 mtree_trie_free(struct mtree_trie *trie);
+int			 mtree_trie_insert(struct mtree_trie *trie, const char *key,
+			    void *item);
+void			*mtree_trie_find(struct mtree_trie *trie, const char *key);
+size_t			 mtree_trie_count(struct mtree_trie *trie);
 
 /* mtree_utils.c */
 int		 mtree_copy_string(char **dst, const char *src);
