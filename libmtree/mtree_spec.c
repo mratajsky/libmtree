@@ -261,14 +261,15 @@ mtree_spec_read_path(struct mtree_spec *spec, const char *path)
 					fts_set(fts, ftsent, FTS_SKIP);
 				parent = entry;
 			}
-			first = mtree_entry_append(first, entry);
+			first = mtree_entry_prepend(first, entry);
 			break;
 		}
 	}
 
 	if (ret == 0) {
 		if (first != NULL)
-			spec->entries = mtree_entry_append(spec->entries, first);
+			spec->entries = mtree_entry_append(spec->entries,
+			    mtree_entry_reverse(first));
 	} else {
 		int err;
 

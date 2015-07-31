@@ -583,7 +583,7 @@ read_mtree_spec(struct mtree_reader *r, const char *s)
 				r->parent = entry;
 		}
 
-		r->entries = mtree_entry_append(r->entries, entry);
+		r->entries = mtree_entry_prepend(r->entries, entry);
 	}
 
 	return (0);
@@ -737,7 +737,7 @@ mtree_reader_finish(struct mtree_reader *r, struct mtree_entry **entries)
 
 	if (ret == 0) {
 		/* Entries that have been read are transferred to the caller */
-		*entries = r->entries;
+		*entries = mtree_entry_reverse(r->entries);
 		r->entries = NULL;
 	}
 	mtree_reader_reset(r);
