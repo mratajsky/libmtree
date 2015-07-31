@@ -129,6 +129,7 @@ struct mtree_spec_diff {
 	struct mtree_entry	*s1only;
 	struct mtree_entry	*s2only;
 	struct mtree_entry	*diff;
+	struct mtree_entry	*match;
 };
 
 struct mtree_spec {
@@ -177,9 +178,11 @@ struct mtree_entry	*mtree_entry_copy_all(struct mtree_entry *entry);
 void			 mtree_entry_copy_missing_keywords(struct mtree_entry *entry,
 			    struct mtree_entry_data *from);
 int			 mtree_entry_compare(struct mtree_entry *entry1,
-			    struct mtree_entry *entry2, long *diff);
+			    struct mtree_entry *entry2, long keywords, long *diff);
 int			 mtree_entry_compare_keyword(struct mtree_entry *entry1,
 			    struct mtree_entry *entry2, long keyword);
+int			 mtree_entry_compare_keywords(struct mtree_entry *entry1,
+			    struct mtree_entry *entry2, long keywords, long *diff);
 int			 mtree_entry_data_compare_keyword(struct mtree_entry_data *data1,
 			    struct mtree_entry_data *data2, long keyword);
 struct mtree_entry 	*mtree_entry_prepend(struct mtree_entry *entry,

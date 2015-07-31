@@ -235,37 +235,56 @@ compare_keyword(struct mtree_entry_data *data1, struct mtree_entry_data *data2,
 
 int
 mtree_entry_compare(struct mtree_entry *entry1, struct mtree_entry *entry2,
-    long *diff)
+    long keywords, long *diff)
 {
-	long differ;
 	int ret;
-	int i;
 
 	assert(entry1 != NULL);
 	assert(entry2 != NULL);
 
-	/*
-	 * Compare paths
-	 */
 	if (entry1->path != NULL && entry2->path != NULL) {
 		ret = strcmp(entry1->path, entry2->path);
 		if (ret != 0)
 			return (ret);
 	} else if (entry1->path != entry2->path) {
-		/* One path is NULL */
+		/*
+		 * One of the paths is NULL.
+		 */
 		return (entry1->path == NULL ? -1 : 1);
 	}
+	return (mtree_entry_compare_keywords(entry1, entry2, keywords, diff));
+}
+
+int
+mtree_entry_compare_keyword(struct mtree_entry *entry1, struct mtree_entry *entry2,
+    long keyword)
+{
+
+	assert(entry1 != NULL);
+	assert(entry2 != NULL);
+
+	return compare_keyword(&entry1->data, &entry2->data, keyword);
+}
+
+int
+mtree_entry_compare_keywords(struct mtree_entry *entry1, struct mtree_entry *entry2,
+    long keywords, long *diff)
+{
+	long	differ;
+	int 	ret;
+	int	i;
 
 	/*
-	 * Compare keywords, only the keywords that are present in both
-	 * specs are compared
+	 * Compare selected keywords, but only the ones that are present in
+	 * both entries.
 	 */
 	differ = 0;
-	for (i = 0; mtree_keywords[i].name != NULL; i++) {
+	for (i = 0; mtree_keywords[i].keyword != 0; i++) {
+		if ((keywords & mtree_keywords[i].keyword) == 0)
+			continue;
 		if ((entry1->data.keywords & mtree_keywords[i].keyword) == 0 ||
 		    (entry2->data.keywords & mtree_keywords[i].keyword) == 0)
 			continue;
-
 		ret = compare_keyword(&entry1->data, &entry2->data,
 		    mtree_keywords[i].keyword);
 		if (ret != 0) {
@@ -278,23 +297,11 @@ mtree_entry_compare(struct mtree_entry *entry1, struct mtree_entry *entry2,
 			differ |= mtree_keywords[i].keyword;
 		}
 	}
-
 	if (differ) {
 		*diff = differ;
 		return (1);
 	}
 	return (0);
-}
-
-int
-mtree_entry_compare_keyword(struct mtree_entry *entry1, struct mtree_entry *entry2,
-    long keyword)
-{
-
-	assert(entry1 != NULL);
-	assert(entry2 != NULL);
-
-	return compare_keyword(&entry1->data, &entry2->data, keyword);
 }
 
 int

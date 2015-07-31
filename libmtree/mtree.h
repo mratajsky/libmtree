@@ -151,6 +151,16 @@ typedef enum {
 #define MTREE_WRITE_DIR_BLANK_LINES	0x40
 
 /*
+ * mtree_spec_diff_create() collecting options.
+ */
+#define MTREE_SPEC_DIFF_COLLECT_SPEC1_ONLY	0x01 /* collect spec1-only entries */
+#define MTREE_SPEC_DIFF_COLLECT_SPEC2_ONLY	0x02 /* collect spec2-only entries */
+#define MTREE_SPEC_DIFF_COLLECT_MATCHING	0x04 /* collect matching entries */
+#define MTREE_SPEC_DIFF_COLLECT_DIFFERENT	0x08 /* collect different entries */
+#define MTREE_SPEC_DIFF_COLLECT_ALL		0x0F /* collect everyting */
+#define MTREE_SPEC_DIFF_COLLECT_DEFAULT		0x0B /* matching excluded */
+
+/*
  * Digest types
  */
 #define MTREE_DIGEST_MD5		0x01
@@ -282,11 +292,12 @@ void			 mtree_spec_set_write_options(struct mtree_spec *spec,
 			    int options);
 
 struct mtree_spec_diff	*mtree_spec_diff_create(struct mtree_spec *spec1,
-			    struct mtree_spec *spec2);
+			    struct mtree_spec *spec2, long keywords, int options);
 void			 mtree_spec_diff_free(struct mtree_spec_diff *sd);
 struct mtree_entry	*mtree_spec_diff_get_spec1_only(struct mtree_spec_diff *sd);
 struct mtree_entry	*mtree_spec_diff_get_spec2_only(struct mtree_spec_diff *sd);
 struct mtree_entry	*mtree_spec_diff_get_different(struct mtree_spec_diff *sd);
+struct mtree_entry	*mtree_spec_diff_get_matching(struct mtree_spec_diff *sd);
 
 long			 mtree_keyword_parse(const char *keyword);
 const char		*mtree_keyword_string(long keyword);
