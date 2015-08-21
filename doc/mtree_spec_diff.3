@@ -1,0 +1,181 @@
+.\"
+.\" Copyright (c) 2015 Michal Ratajsky <michal@FreeBSD.org>
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.Dd August 10, 2015
+.Dt MTREE_SPEC_DIFF 3
+.Os
+.Sh NAME
+.Nm mtree_spec_diff
+.Nd compare mtree specs
+.Sh LIBRARY
+libmtree
+.Sh SYNOPSIS
+.In mtree.h
+.Ft struct mtree_spec_diff *
+.Fn mtree_spec_diff_create "struct mtree_spec *spec1" "struct mtree_spec *spec2" "uint64_t keywords" "int options"
+.Ft struct mtree_entry *
+.Fn mtree_spec_diff_get_spec1_only "struct mtree_spec_diff *sd"
+.Ft struct mtree_entry *
+.Fn mtree_spec_diff_get_spec2_only "struct mtree_spec_diff *sd"
+.Ft struct mtree_entry *
+.Fn mtree_spec_diff_get_matching "struct mtree_spec_diff *sd"
+.Ft struct mtree_entry *
+.Fn mtree_spec_diff_get_different "struct mtree_spec_diff *sd"
+.Ft int
+.Fn mtree_spec_diff_write_writer "struct mtree_spec_diff *sd" "mtree_writer_fn f" "void *user_data"
+.Ft void
+.Fn mtree_spec_diff_free "struct mtree_spec_diff *sd"
+.In mtree.h
+.In mtree_file.h
+.Ft int
+.Fn mtree_spec_diff_write_file "struct mtree_spec_diff *sd" "FILE *fp"
+.Ft int
+.Fn mtree_spec_diff_write_fd "struct mtree_spec_diff *sd" "int fd"
+.Sh DESCRIPTION
+The
+.Fn mtree_spec_diff_create
+function compares
+.Fa spec1
+and
+.Fa spec2 ,
+and creates four lists with information about the differences between entries
+in the given specs. The function also accepts a bitwise OR of
+.Fa keywords ,
+which allows to restrict the comparison to the given set of keywords. The
+.Fa options
+argument accepts either zero or the option:
+.Pp
+.Bl -tag -offset indent
+.It MTREE_SPEC_DIFF_MATCH_EXTRA_KEYWORDS
+This option specifies that two entries, which contain different sets of
+keywords, but the keywords they have in common have the same values, are considered
+matching.
+.Pp
+By default, without specifying this option, each two keywords with different
+sets of keyword are considered to be different.
+.El
+.Pp
+The following functions provide access to the aforementioned lists:
+.Pp
+.Bl -tag -offset indent
+.It Fn mtree_spec_diff_get_spec1_only
+Get the
+.Em spec1-only
+list. This list includes the entries that are present in the first spec, and the
+second spec doesn't contain any entry with the same path.
+.It Fn mtree_spec_diff_get_spec2_only
+Get the
+.Em spec2-only
+list. This list includes the entries, that are present in the second spec, and the
+first spec doesn't contain any entry with the same path.
+.It Fn mtree_spec_diff_get_matching
+Get the
+.Em matching
+list. This list includes the entries, that are present in both lists and have
+the same set of keywords with the same keyword values.
+.Pp
+This list contains pairs of entries from both specs. That means the first entry
+in the list comes from
+.Fa spec1 ,
+and the second entry in the list is the matching entry from
+.Fa spec2 .
+.Pp
+If the
+.Em MTREE_SPEC_DIFF_MATCH_EXTRA_KEYWORDS
+option is specified, it will also include entries that have the same values in
+their common set of keywords, but one entry may contain extra keywords that the
+other one doesn't.
+.It Fn mtree_spec_diff_get_different
+Get the
+.Em different
+list. This list includes the entries, that have the same paths, but different
+keyword values.
+.Pp
+Just like the
+.Em matching
+list, the entries in this list are stored in pairs, first entry being from the
+first list, second entry being from the second list.
+.Pp
+Addionally, the entries in this list have the keyword sets modified to only
+include the keyword that have different values, or that are not present in
+the other spec.
+.El
+.Pp
+All the lists contain copies of entries and any of the lists may be empty.
+.Pp
+The following functions are provided for writing a report:
+.Pp
+.Bl -tag -offset indent
+.It Fn mtree_spec_diff_write_file
+Write the report to the given FILE pointer.
+.It Fn mtree_spec_diff_write_fd
+Write the report to the given file descriptor.
+.It Fn mtree_spec_diff_write_writer
+Write the report to the given user-defined function.
+.El
+.Pp
+In the report, as written by these functions, the
+.Em spec1-only
+entries are prefixed with zero tabs, the
+.Em spec2-only
+entries with one tab, and the
+.Em different
+entries with two tabs. Each entry in the
+.Em different
+column occupies two lines, one from each spec.
+.Pp
+The
+.Fn mtree_spec_diff_free
+function releases all allocated resources for the structure, along with the
+entry lists.
+.Sh RETURN VALUE
+The
+.Fn mtree_spec_diff_create
+function returns a pointer to a newly allocated
+.Tn mtree_spec_diff
+structure, or NULL if memory couldn't be allocated.
+.Pp
+The
+.Fn mtree_spec_diff_get_spec1_only ,
+.Fn mtree_spec_diff_get_spec2_only ,
+.Fn mtree_spec_diff_get_matching
+and
+.Fn mtree_spec_diff_get_different
+functions return a pointer to the head of a list, which may be the value
+.Dv NULL
+when the list is empty.
+.Pp
+The writing functions return zero on success. On error, they return -1
+and set errno to indicate the error.
+.Sh SEE ALSO
+.Xr mtree 5 ,
+.Xr mtree_entry 3 ,
+.Xr mtree_spec 3
+.Sh AUTHORS
+.An -nosplit
+The
+.Nm libmtree
+library was written by
+.An Michal Ratajsky Aq michal@FreeBSD.org .

@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "mtree.h"
 #include "mtree_private.h"
 
 struct mtree_trie *
@@ -46,25 +47,28 @@ mtree_trie_create(void)
 }
 
 static void
-free_nodes(struct mtree_trie *u)
+free_nodes(struct mtree_trie *u, mtree_trie_free_fn f)
 {
 
 	if (u->left != NULL && u->left->bit > u->bit)
-		free_nodes(u->left);
+		free_nodes(u->left, f);
 	if (u->right != NULL && u->right->bit > u->bit)
-		free_nodes(u->right);
+		free_nodes(u->right, f);
 
+	if (f != NULL)
+		f(u->item);
 	free(u->key);
 	free(u);
 }
 
 void
-mtree_trie_free(struct mtree_trie *trie)
+mtree_trie_free(struct mtree_trie *trie, mtree_trie_free_fn f)
 {
 
 	assert(trie != NULL);
 
-	free_nodes(trie->left);
+	if (trie->left != trie)
+		free_nodes(trie->left, f);
 	free(trie);
 }
 
@@ -81,7 +85,7 @@ create_node(const char *key, void *item)
 	u->key_len = strlen(key);
 	u->key     = strdup(key);
 	if (u->key == NULL) {
-		mtree_trie_free(u);
+		mtree_trie_free(u, NULL);
 		return (NULL);
 	}
 	return (u);
@@ -102,7 +106,7 @@ find_node(struct mtree_trie *trie, const char *key)
 	size_t			 len;
 	size_t			 d;
 
-	if (trie->left == NULL)
+	if (trie->left == trie)
 		return (NULL);
 
 	u   = trie->left;
@@ -209,7 +213,7 @@ mtree_trie_count(struct mtree_trie *trie)
 
 	assert(trie != NULL);
 
-	return (trie->left == NULL ? 0 : count_nodes(trie->left));
+	return (trie->left == trie ? 0 : count_nodes(trie->left));
 }
 
 /*

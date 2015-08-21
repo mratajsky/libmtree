@@ -1,0 +1,303 @@
+.\"
+.\" Copyright (c) 2015 Michal Ratajsky <michal@FreeBSD.org>
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.Dd August 10, 2015
+.Dt MTREE_SPEC 3
+.Os
+.Sh NAME
+.Nm mtree_spec
+.Nd mtree spec
+.Sh LIBRARY
+libmtree
+.Sh SYNOPSIS
+.In mtree.h
+.Ft struct mtree_spec *
+.Fn mtree_spec_create
+.Ft int
+.Fn mtree_spec_read_spec_data "struct mtree_spec *spec" "const char *data" "size_t len"
+.Ft int
+.Fn mtree_spec_read_spec_data_finish "struct mtree_spec *spec"
+.Ft int
+.Fn mtree_spec_read_path "struct mtree_spec *spec" "const char *path"
+.Ft int
+.Fn mtree_spec_get_read_options "struct mtree_spec *spec"
+.Ft void
+.Fn mtree_spec_set_read_options "struct mtree_spec *spec" "int options"
+.Ft const char *
+.Fn mtree_spec_get_read_error "struct mtree_spec *spec"
+.Ft void
+.Fn mtree_spec_set_read_filter "struct mtree_spec *spec" "int \*[lp]*fn\*[rp]\*[lp]struct mtree_entry *, void *\*[rp]" "void *user_data"
+.Ft uint64_t
+.Fn mtree_spec_get_read_spec_keywords "struct mtree_spec *spec"
+.Ft void
+.Fn mtree_spec_set_read_spec_keywords "struct mtree_spec *spec" "uint64_t keywords"
+.Ft uint64_t
+.Fn mtree_spec_get_read_path_keywords "struct mtree_spec *spec"
+.Ft void
+.Fn mtree_spec_set_read_path_keywords "struct mtree_spec *spec" "uint64_t keywords"
+.Ft struct mtree_entry *
+.Fn mtree_spec_get_entries "struct mtree_spec *spec"
+.Ft struct mtree_entry *
+.Fn mtree_spec_take_entries "struct mtree_spec *spec"
+.Ft void
+.Fn mtree_spec_set_entries "struct mtree_spec *spec" "struct mtree_entry *entries"
+.Ft int
+.Fn mtree_spec_copy_entries "struct mtree_spec *spec" "const struct mtree_entry *entries"
+.Ft int
+.Fn mtree_spec_write_writer "struct mtree_spec *spec" "int \*[lp]*mtree_writer_fn\*[rp]\*[lp]const char *, size_t, void *\*[rp]" "void *user_data"
+.Ft int
+.Fn mtree_spec_get_write_options "struct mtree_spec *spec"
+.Ft void
+.Fn mtree_spec_set_write_options "struct mtree_spec *spec" "int options"
+.Ft mtree_format
+.Fn mtree_spec_get_write_format "struct mtree_spec *spec"
+.Ft void
+.Fn mtree_spec_set_write_format "struct mtree_spec *spec" "mtree_format format"
+.Ft const char *
+.Fn mtree_spec_get_write_error "struct mtree_spec *spec"
+.Ft void
+.Fn mtree_spec_set_write_filter "struct mtree_spec *spec" "mtree_entry_filter_fn f" "void *user_data"
+.Ft void
+.Fn mtree_spec_free "struct mtree_spec *spec"
+.In mtree.h
+.In mtree_file.h
+.Ft int
+.Fn mtree_spec_read_spec_file "struct mtree_spec *spec" "FILE *fp"
+.Ft int
+.Fn mtree_spec_read_spec_fd "struct mtree_spec *spec" "int fd"
+.Ft int
+.Fn mtree_spec_write_file "struct mtree_spec *spec" "FILE *fp"
+.Ft int
+.Fn mtree_spec_write_fd "struct mtree_spec *spec" "int fd"
+.Sh DESCRIPTION
+The
+.Tn mtree_spec
+structure describes a collection of mtree entries that can be populated by
+reading spec files or traversing directory structure, and that can also be
+written to arbitrary locations.
+.Pp
+Use the
+.Fn mtree_spec_create
+function to create a new spec.
+.Pp
+To read spec entries from spec files or file system, use one of the following
+functions:
+.Pp
+.Bl -tag -offset indent
+.It Fn mtree_spec_read_spec_file "struct mtree_spec *" "FILE *"
+Read spec entries from the given FILE pointer.
+.It Fn mtree_spec_read_spec_fd "struct mtree_spec *" "int"
+Read spec entries from the given file descriptor.
+.It Fn mtree_spec_read_spec_data "struct mtree_spec *" "const char *" "size_t"
+Read spec entries from the given buffer of the given size. This function
+may be called repeatedly as chunk of spec file are pulled by application.
+.Pp
+.It Fn mtree_spec_read_spec_data_finish "struct mtree_spec *"
+Terminate reading from buffers. This function needs to be called after all
+data has been passed to
+.Fn Fn mtree_spec_read_spec_data
+to finalize the reading are store the entries inside the
+.Tn mtree_spec .
+.It Fn mtree_spec_read_path "struct mtree_spec *" "const char *"
+Read spec entries by traversing the directory at the given path. It is also
+possible to supply path to a file instead. In that case, this function will
+create a single entry describing that file.
+.El
+.Pp
+Each of the described functions may be called any number of times on a single
+spec. According to configured options (as described below), this results
+in creating a joint list of mtree entries, where the entries may be optionally
+sorted or merged together.
+.Pp
+Use
+.Fn mtree_spec_get_read_options
+and
+.Fn mtree_spec_set_read_options
+to get and set reading options that affect the behaviour of the described
+functions.
+.Pp
+The
+.Fa options
+value is a bitwise OR of zero or more of the following values:
+.Pp
+.Bl -tag -offset indent
+.It MTREE_READ_SKIP_BLOCK
+Skip reading block device entries.
+.It MTREE_READ_SKIP_CHAR
+Skip reading character device entries.
+.It MTREE_READ_SKIP_DIR
+Skip reading directories.
+.Pp
+Note that files inside directories will still be read with this option.
+.It MTREE_READ_SKIP_FIFO
+Skip reading FIFO entries.
+.It MTREE_READ_SKIP_FILE
+Skip reading regular files.
+.It MTREE_READ_SKIP_LINK
+Skip reading symbolic links.
+.It MTREE_READ_SKIP_SOCKET
+Skip reading socket entries.
+.It MTREE_READ_SKIP_UNKNOWN
+Skip reading unknown entries, that is entries without a given type.
+.It MTREE_READ_SKIP_ALL
+Skip reading all entries. This value is a mask of all the options above.
+.It MTREE_READ_SORT
+Sort the entries in path order after they are read. In path order, the entries
+are sorted alphabetically, but directories are placed after files in the same
+directory.
+.It MTREE_READ_MERGE
+Merge the entries after they are read. This merges duplicate entries into one,
+with latter keyword values taking precedence.
+.Pp
+When this option is given, the whole list contained in a spec is merged
+together after reading, not only the last read part.
+.It MTREE_READ_MERGE_DIFFERENT_TYPES
+Merge entries with different types. By default, entries with the same path
+and different types abort the reading process with an error.
+.Pp
+Note that merging different types doesn't remove any keywords from the
+entries, even if some keywords may not be suitable for the last entry type.
+.El
+.Pp
+The following
+.Fa options
+are only applied in the
+.Fn mtree_spec_read_path
+function:
+.Pp
+.Bl -tag -offset indent
+.It MTREE_READ_PATH_SKIP_ON_ERROR
+Skip entry if it cannot be read. The default behaviour is to cancel reading
+in such case.
+.It MTREE_READ_PATH_FOLLOW_SYMLINKS
+Resolve symlinks and make entries reflect properties of the files the link
+point to instead of the links themselves.
+.It MTREE_READ_PATH_DONT_CROSS_MOUNT
+Do not cross the current mount point when traversing directory structure.
+.El
+.Pp
+The
+.Fn mtree_spec_get_read_error
+function returns the textual error message in case some of the reading
+functions fails.
+.Pp
+Use
+.Fn mtree_spec_set_read_filter
+to set a filtering function to be called every time some of the reading
+functions reads a new mtree entry.
+.Pp
+The filtering function is expected to return one of the following values:
+.Pp
+.Bl -tag -offset indent
+.It MTREE_ENTRY_KEEP
+Keep the entry in the spec.
+.It MTREE_ENTRY_SKIP
+Skip the entry, that is not include it in the spec.
+.It MTREE_ENTRY_SKIP_CHILDREN
+This value may be bitwise OR'ed to one of the previous values to skip the
+children of the current entry. It is only applicable to directory
+entries.
+.Pp
+Note that the reading functions don't guarantee the order in which entries
+are processed. It is therefore possible that the filter will be called
+for child entries of some directory before it's called for the directory
+itself. If the filter decides to skip the children, the library will
+remove all the child entries of the directory, even if they have been
+already visited.
+.El
+.Pp
+Use
+.Fn mtree_spec_get_read_path_keywords
+and
+.Fn mtree_spec_set_read_path_keywords
+to get and set which keywords values will be read while reading entries from
+filesystem with
+.Fn mtree_spec_read_path .
+The default value is:
+.Em MTREE_KEYWORD_MASK_DEFAULT .
+.Pp
+Note that this is not applicable for keywords that cannot be read by examining
+files. Also, some keywords require reading the whole content of a file, for
+example the digest keywords. Including such keywords may have significant
+impact on the performance when reading large directory structures.
+.Pp
+Use
+.Fn mtree_spec_get_read_spec_keywords
+and
+.Fn mtree_spec_set_read_spec_keywords
+to get and set which keywords values will be read while reading entries from
+spec files.
+The default value is:
+.Em MTREE_KEYWORD_MASK_ALL .
+.Pp
+The
+.Fn mtree_spec_get_entries
+function may be used to retrieve a list of entries stored in a spec. While
+it is possible to modify the list, the head entry of the list must not
+be removed or replaced.
+.Pp
+The
+.Fn mtree_spec_take_entries
+function retrieves the list of entries and also removes it from the spec.
+Using this function is preferable when the list is going to be modified, as
+the spec no longer owns the list.
+.Pp
+The
+.Fn mtree_spec_set_entries
+and
+.Fn mtree_spec_copy_entries
+functions both assign a list of entries to a spec. The
+.Fn mtree_spec_set_entries
+function claims ownership of the given entries, while
+.Fn mtree_spec_copy_entries
+copies the entry list before storing it in the spec.
+.Pp
+A useful idiom is to call
+.Fn mtree_spec_take_entries ,
+perform any needed modification of the list, and then call
+.Fn mtree_spec_set_entries
+to give the list back to the spec.
+.Pp
+To write spec entries to a spec file, use one of the following functions:
+.Pp
+.Bl -tag -offset indent
+.It Fn mtree_spec_write_file
+Write spec entries to the given FILE pointer.
+.It Fn mtree_spec_write_fd
+Write spec entries to the given file descriptor.
+.It Fn mtree_spec_write_writer
+Write spec entries usinged the given user-defined function.
+.El
+.Sh SEE ALSO
+.Xr mtree 5 ,
+.Xr mtree_entry_get_keywords 3 ,
+.Xr mtree_entry_set_keywords 3 ,
+.Xr mtree_spec 3
+.Sh AUTHORS
+.An -nosplit
+The
+.Nm libmtree
+library was written by
+.An Michal Ratajsky Aq michal@FreeBSD.org .

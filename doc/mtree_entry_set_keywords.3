@@ -1,0 +1,415 @@
+.\"
+.\" Copyright (c) 2015 Michal Ratajsky <michal@FreeBSD.org>
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.Dd August 10, 2015
+.Dt MTREE_DEVICE 3
+.Os
+.Sh NAME
+.Nm mtree_entry_set_keywords
+.Nd set keywords of an mtree spec entry
+.Sh LIBRARY
+libmtree
+.Sh SYNOPSIS
+.In mtree.h
+.Ft void
+.Fn mtree_entry_set_keywords "struct mtree_entry *entry" "uint64_t keywords" "int options"
+.Ft void
+.Fn mtree_entry_set_keywords_stat "struct mtree_entry *entry" "const struct stat *st" "uint64_t keywords" "int options"
+.Ft void
+.Fn mtree_entry_set_cksum "struct mtree_entry *entry" "uint32_t cksum"
+.Ft void
+.Fn mtree_entry_set_contents "struct mtree_entry *entry" "const char *contents"
+.Ft void
+.Fn mtree_entry_set_device "struct mtree_entry *entry" "const struct mtree_device *dev"
+.Ft void
+.Fn mtree_entry_set_device_number "struct mtree_entry *entry" "dev_t number"
+.Ft void
+.Fn mtree_entry_set_flags "struct mtree_entry *entry" "const char *flags"
+.Ft void
+.Fn mtree_entry_set_gid "struct mtree_entry *entry" "int64_t gid"
+.Ft void
+.Fn mtree_entry_set_gname "struct mtree_entry *entry" "const char *gname"
+.Ft void
+.Fn mtree_entry_set_inode "struct mtree_entry *entry" "uint64_t ino"
+.Ft void
+.Fn mtree_entry_set_link "struct mtree_entry *entry" "const char *link"
+.Ft void
+.Fn mtree_entry_set_md5digest "struct mtree_entry *entry" "const char *digest" "uint64_t keywords"
+.Ft void
+.Fn mtree_entry_set_mode "struct mtree_entry *entry" "int mode"
+.Ft void
+.Fn mtree_entry_set_nlink "struct mtree_entry *entry" "int64_t nlink"
+.Ft void
+.Fn mtree_entry_set_resdevice "struct mtree_entry *entry" "const struct mtree_device *dev"
+.Ft void
+.Fn mtree_entry_set_resdevice_number "struct mtree_entry *entry" "dev_t number"
+.Ft void
+.Fn mtree_entry_set_rmd160digest "struct mtree_entry *entry" "const char *digest" "uint64_t keywords"
+.Ft void
+.Fn mtree_entry_set_sha1digest "struct mtree_entry *entry" "const char *digest" "uint64_t keywords"
+.Ft void
+.Fn mtree_entry_set_sha256digest "struct mtree_entry *entry" "const char *digest" "uint64_t keywords"
+.Ft void
+.Fn mtree_entry_set_sha384digest "struct mtree_entry *entry" "const char *digest" "uint64_t keywords"
+.Ft void
+.Fn mtree_entry_set_sha512digest "struct mtree_entry *entry" "const char *digest" "uint64_t keywords"
+.Ft void
+.Fn mtree_entry_set_size "struct mtree_entry *entry" "int64_t size"
+.Ft void
+.Fn mtree_entry_set_tags "struct mtree_entry *entry" "const char *tags"
+.Ft void
+.Fn mtree_entry_set_time "struct mtree_entry *entry" "const struct mtree_timespec *ts"
+.Ft void
+.Fn mtree_entry_set_type "struct mtree_entry *entry" "mtree_entry_type type"
+.Ft void
+.Fn mtree_entry_set_uid "struct mtree_entry *entry" "int64_t uid"
+.Ft void
+.Fn mtree_entry_set_uname "struct mtree_entry *entry" "const char *uname"
+.Sh DESCRIPTION
+Each mtree entry may contain any number of keywords, some of which contain
+values. Keywords correspond to file properties. For example the keyword
+.Em uname
+may have the value
+.Em root ,
+which describes that the file is owned by the user
+.Em root .
+.Pp
+Keywords are thoroughly described in
+.Xr mtree 5 .
+.Pp
+The functions described here use the following constants to refer to individual
+keywords:
+.Pp
+.Bd -literal -offset indent -compact
+MTREE_KEYWORD_CKSUM		The "cksum" keyword.
+MTREE_KEYWORD_CONTENTS		The "contents" keyword.
+MTREE_KEYWORD_DEVICE		The "device" keyword.
+MTREE_KEYWORD_FLAGS		The "flags" keyword.
+MTREE_KEYWORD_GID		The "gid" keyword.
+MTREE_KEYWORD_GNAME		The "gname" keyword.
+MTREE_KEYWORD_IGNORE		The "ignore" keyword.
+MTREE_KEYWORD_INODE		The "inode" keyword.
+MTREE_KEYWORD_LINK		The "link" keyword.
+MTREE_KEYWORD_MD5		The "md5" keyword.
+MTREE_KEYWORD_MD5DIGEST		The "md5digest keyword.
+MTREE_KEYWORD_MODE		The "mode" keyword.
+MTREE_KEYWORD_NLINK		The "nlink" keyword.
+MTREE_KEYWORD_NOCHANGE		The "nochange" keyword.
+MTREE_KEYWORD_OPTIONAL		The "optional" keyword.
+MTREE_KEYWORD_RESDEVICE		The "resdevice" keyword.
+MTREE_KEYWORD_RIPEMD160DIGEST	The "ripemd160digest" keyword.
+MTREE_KEYWORD_RMD160		The "rmd160" keyword.
+MTREE_KEYWORD_RMD160DIGEST	The "rmd160digest" keyword.
+MTREE_KEYWORD_SHA1		The "sha1" keyword.
+MTREE_KEYWORD_SHA1DIGEST	The "sha1digest" keyword.
+MTREE_KEYWORD_SHA256		The "sha256" keyword.
+MTREE_KEYWORD_SHA256DIGEST	The "sha256digest" keyword.
+MTREE_KEYWORD_SHA384		The "sha384" keyword.
+MTREE_KEYWORD_SHA384DIGEST	The "sha384digest" keyword.
+MTREE_KEYWORD_SHA512		The "sha512" keyword.
+MTREE_KEYWORD_SHA512DIGEST	The "sha512digest" keyword.
+MTREE_KEYWORD_SIZE		The "size" keyword.
+MTREE_KEYWORD_TAGS		The "tags" keyword.
+MTREE_KEYWORD_TIME		The "time" keyword.
+MTREE_KEYWORD_TYPE		The "type" keyword.
+MTREE_KEYWORD_UID		The "uid" keyword.
+MTREE_KEYWORD_UNAME		The "uname" keyword.
+.Ed
+.Pp
+Additionally, the following masks are defined:
+.Pp
+.Bl -tag -offset indent
+.It MTREE_KEYWORD_MASK_ALL
+All keywords.
+.It MTREE_KEYWORD_MASK_DEFAULT
+Default set of keywords. This includes "device", "flags", "gid", "link",
+"mode", "nlink", "size", "time", "type" and "uid".
+.Pp
+This mask is used in
+.Xr mtree_spec 3
+as the default set of keywords that are read from files in the file system.
+.It MTREE_KEYWORD_MASK_MD5
+All MD5 digest keywords.
+.It MTREE_KEYWORD_MASK_RMD160
+All RMD160 digest keywords.
+.It MTREE_KEYWORD_MASK_SHA1
+All SHA1 digest keywords.
+.It MTREE_KEYWORD_MASK_SHA256
+All SHA256 digest keywords.
+.It MTREE_KEYWORD_MASK_SHA384
+All SHA384 digest keywords.
+.It MTREE_KEYWORD_MASK_SHA512
+All SHA512 digest keywords.
+.It MTREE_KEYWORD_MASK_DIGEST
+All MD5, RMD160, SHA1, SHA256, SHA384 and SHA512 digest keywords.
+.It MTREE_KEYWORD_MASK_USER
+All "user" keywords, that is "uid" and "uname".
+.It MTREE_KEYWORD_MASK_GROUP
+All "group" keywords, that is "gid" and "gname".
+.It MTREE_KEYWORD_MASK_STAT
+All keywords that can be read using
+.Xr stat 2 .
+This includes "device", "flags", "gid", "inode", "link", "mode", "nlink",
+"size", "time", "type" and "uid".
+.El
+.Pp
+The
+.Fn mtree_entry_set_keywords
+function can be used to alter keywords of an mtree entry. The
+.Fa keywords
+argument is a bitwise OR of keyword constants and specifies, which keywords
+should be set in
+.Fa entry .
+.Pp
+Newly set keywords that do not take a value, for example the
+.Em optional
+keyword, will be included in the entry.
+.Pp
+For all newly set keywords that take a value and the value can be read from a
+file, for example by calling
+.Xr stat 2 ,
+the function will try to read or calculate the keyword value from the file path
+of
+.Fa entry .
+If it is not possible to gather the value from the file, the function will remove
+the keyword from
+.Fa entry .
+.Pp
+The following keywords are ignored by this function, because they take
+a value and the value cannot be read from a file:
+.Pp
+.Bd -literal -offset indent -compact
+MTREE_KEYWORD_CONTENTS
+MTREE_KEYWORD_TAGS
+.Ed
+.Pp
+Instead, use
+.Fn mtree_entry_set_contents
+and
+.Fn mtree_entry_set_tags
+to set these keywords.
+.Pp
+The keywords that are already set in
+.Fa entry
+are not modified by default. This behaviour may be altered by the
+.Fa options
+argument. The argument takes a bitwise OR of the following options:
+.Pp
+.Bl -tag -offset indent
+.It MTREE_ENTRY_OVERWRITE
+Attempt to overwrite keywords that are already set.
+.Pp
+If it is not possible to read or calculate the new keyword value from the
+file, the keyword will be removed from the
+.Fa entry .
+.It MTREE_ENTRY_REMOVE_EXCLUDED
+Remove all keywords that are not included in the
+.Fa keyword
+value.
+.Pp
+This option provides the a way to remove keywords from an entry.
+.El
+.Pp
+The following functions provide a way to set values of individual keywords:
+.Bl -tag -offset indent
+.It Fn mtree_entry_set_cksum "struct mtree_entry *" "uint32_t"
+Set the "cksum" keyword.
+.It Fn mtree_entry_set_contents "struct mtree_entry *" "const char *"
+Set the "contents" keyword. Supplying the
+.Dv NULL
+value removes the keyword from the entry.
+.It Fn mtree_entry_set_device "struct mtree_entry *" "const struct mtree_device *"
+Set the "device" keyword. Supplying the
+.Dv NULL
+value removes the keyword from the entry.
+.It Fn mtree_entry_set_device_number "struct mtree_entry *" "dev_t"
+Set the "device" keyword to the given device number. The internal
+.Xr mtree_device 3
+structure will be updated to only include the device number.
+.It Fn mtree_entry_set_flags "struct mtree_entry *" "const char *"
+Set the "flags" keyword. Supplying the
+.Dv NULL
+value removes the keyword from the entry.
+.It Fn mtree_entry_set_gid "struct mtree_entry *" "int64_t"
+Set the "gid" keyword.
+.It Fn mtree_entry_set_gname "struct mtree_entry *" "const char *"
+Set the "gname" keyword. Supplying the
+.Dv NULL
+value removes the keyword from the entry.
+.It Fn mtree_entry_set_inode "struct mtree_entry *" "uint64_t"
+Set the "inode" keyword.
+.It Fn mtree_entry_set_link "struct mtree_entry *" "const char *"
+Set the "link" keyword. Supplying the
+.Dv NULL
+value removes the keyword from the entry.
+.It Fn mtree_entry_set_md5digest "struct mtree_entry *" "const char *" "uint64_t"
+Set some of the MD5 digest keywords. The last argument is a bitwise OR of
+one or more of the
+.Em MTREE_KEYWORD_MASK_MD5
+keywords and specifies which keywords to set. Note that all of the keywords
+in the mask are aliases that share the same value.
+.Pp
+Supplying the
+.Dv NULL
+value removes all of the MD5 keywords from the entry, the last argument has
+no effect in this case.
+.It Fn mtree_entry_set_mode "struct mtree_entry *" "int"
+Set the "mode" keyword. The value should be a numeric set of permissions as
+used in the
+.Dv st_mode
+field in
+.Xr stat 2 .
+While the
+.Dv st_mode
+field may store additional information in the field, this function extracts
+and only stores the permissions part.
+.It Fn mtree_entry_set_nlink "struct mtree_entry *" "int64_t"
+Set the "nlink" keyword.
+.It Fn mtree_entry_set_resdevice "struct mtree_entry *" "const struct mtree_device *"
+Set the "resdevice" keyword. Supplying the
+.Dv NULL
+value removes the keyword from the entry.
+.It Fn mtree_entry_set_resdevice_number "struct mtree_entry *" "dev_t"
+Set the "resdevice" keyword to the given device number. The internal
+.Xr mtree_device 3
+structure will be updated to only include the device number.
+.It Fn mtree_entry_set_rmd160digest "struct mtree_entry *" "const char *" "uint64_t"
+Set some of the RMD160 digest keywords. The last argument is a bitwise OR of
+one or more of the
+.Em MTREE_KEYWORD_MASK_RMD160
+keywords and specifies which keywords to set. Note that all of the keywords
+in the mask are aliases that share the same value.
+.Pp
+Supplying the
+.Dv NULL
+value removes all of the RMD160 keywords from the entry, the last argument has
+no effect in this case.
+.It Fn mtree_entry_set_sha1digest "struct mtree_entry *" "const char *" "uint64_t"
+Set some of the SHA1 digest keywords. The last argument is a bitwise OR of
+one or more of the
+.Em MTREE_KEYWORD_MASK_SHA1
+keywords and specifies which keywords to set. Note that all of the keywords
+in the mask are aliases that share the same value.
+.Pp
+Supplying the
+.Dv NULL
+value removes all of the SHA1 keywords from the entry, the last argument has
+no effect in this case.
+.It Fn mtree_entry_set_sha256digest "struct mtree_entry *" "const char *" "uint64_t"
+Set some of the SHA256 digest keywords. The last argument is a bitwise OR of
+one or more of the
+.Em MTREE_KEYWORD_MASK_SHA256
+keywords and specifies which keywords to set. Note that all of the keywords
+in the mask are aliases that share the same value.
+.Pp
+Supplying the
+.Dv NULL
+value removes all of the SHA256 keywords from the entry, the last argument has
+no effect in this case.
+.It Fn mtree_entry_set_sha384digest "struct mtree_entry *" "const char *" "uint64_t"
+Set some of the SHA384 digest keywords. The last argument is a bitwise OR of
+one or more of the
+.Em MTREE_KEYWORD_MASK_SHA384
+keywords and specifies which keywords to set. Note that all of the keywords
+in the mask are aliases that share the same value.
+.Pp
+Supplying the
+.Dv NULL
+value removes all of the SHA384 keywords from the entry, the last argument has
+no effect in this case.
+.It Fn mtree_entry_set_sha512digest "struct mtree_entry *" "const char *" "uint64_t"
+Set some of the SHA512 digest keywords. The last argument is a bitwise OR of
+one or more of the
+.Em MTREE_KEYWORD_MASK_SHA512
+keywords and specifies which keywords to set. Note that all of the keywords
+in the mask are aliases that share the same value.
+.Pp
+Supplying the
+.Dv NULL
+value removes all of the SHA512 keywords from the entry, the last argument has
+no effect in this case.
+.It Fn mtree_entry_set_size "struct mtree_entry *" "int64_t"
+Set the "size" keyword.
+.It Fn mtree_entry_set_tags "struct mtree_entry *" "const char *"
+Set the "tags" keyword. Supplying the
+.Dv NULL
+value removes the keyword from the entry.
+.It Fn mtree_entry_set_time "struct mtree_entry *" "const struct mtree_timespec *"
+Set the "time" keyword. Supplying the
+.Dv NULL
+value removes the keyword from the entry.
+.It Fn mtree_entry_set_type "struct mtree_entry *" "mtree_entry_type"
+Set the "type" keyword.
+.Pp
+The value should be one of the following constants:
+.Bd -literal -offset indent -compact
+MTREE_ENTRY_BLOCK	Block device.
+MTREE_ENTRY_CHAR	Character device.
+MTREE_ENTRY_DIR		Directory.
+MTREE_ENTRY_FIFO	FIFO.
+MTREE_ENTRY_FILE	Regular file.
+MTREE_ENTRY_LINK	Symbolic link.
+MTREE_ENTRY_SOCKET	Socket.
+MTREE_ENTRY_UNKNOWN	Unknown type.
+.Ed
+.Pp
+Supplying the
+.Dv MTREE_ENTRY_UNKNOWN
+value removes the keyword from the entry.
+.It Fn mtree_entry_set_uid "struct mtree_entry *" "int64_t"
+Set the "uid" keyword.
+.It Fn mtree_entry_set_uname "struct mtree_entry *" "const char *"
+Set the "uname" keyword. Supplying the
+.Dv NULL
+value removes the keyword from the entry.
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+/* Create a new entry. */
+struct mtree_entry *entry = mtree_entry_create("./file");
+
+/* Set all keywords that can be read by stat(2). */
+mtree_entry_set_keywords(entry, MTREE_KEYWORD_MASK_STAT, 0);
+
+/* Unset the "device" keyword. */
+uint64_t keywords = mtree_entry_get_keywords(entry);
+mtree_entry_set_keywords(entry, keywords & ~MTREE_KEYWORD_DEVICE,
+    MTREE_ENTRY_REMOVE_EXCLUDED);
+
+/* Set the "md5" keyword to a value stored in `digest'. */
+mtree_entry_set_md5_digest(entry, digest, MTREE_KEYWORD_MD5);
+.Ed
+.Sh SEE ALSO
+.Xr mtree 5 ,
+.Xr mtree_device 3 ,
+.Xr mtree_entry 3 ,
+.Xr mtree_spec 3 ,
+.Xr stat 2
+.Sh AUTHORS
+.An -nosplit
+The
+.Nm libmtree
+library was written by
+.An Michal Ratajsky Aq michal@FreeBSD.org .

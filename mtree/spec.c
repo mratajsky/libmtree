@@ -31,50 +31,82 @@
 
 #include <assert.h>
 #include <errno.h>
-#include <libmtree/mtree.h>
-#include <libmtree/mtree_file.h>
+#include <mtree.h>
+#include <mtree_file.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
 
-#if HAVE_NETDB_H
-/* For MAXHOSTNAMELEN on some platforms. */
-# include <netdb.h>
-#endif
+#include "compat.h"
+#include "local.h"
 
-#include "mtree.h"
-
-#ifndef MAXHOSTNAMELEN
-# define MAXHOSTNAMELEN	256
-#endif
-
-static mtree_spec *
+struct mtree_spec *
 create_spec(void)
 {
-	mtree_spec *spec;
-	int roptions;
+	struct mtree_spec	*spec;
+	int			 options;
 
 	spec = mtree_spec_create();
 	if (spec == NULL)
 		return (NULL);
 
-	roptions = 0;
+	options = MTREE_READ_MERGE;
+	if (Sflag)
+		options |= MTREE_READ_SORT;
+	if (Mflag)
+		options |= MTREE_READ_MERGE_DIFFERENT_TYPES;
+	if (dflag) {
+		options |= MTREE_READ_SKIP_ALL;
+		options &= ~MTREE_READ_SKIP_DIR;
+	}
 	if (Lflag)
-		roptions |= MTREE_READ_PATH_FOLLOW_SYMLINKS;
+		options |= MTREE_READ_PATH_FOLLOW_SYMLINKS;
 	if (xflag)
-		roptions |= MTREE_READ_PATH_DONT_CROSS_DEV;
+		options |= MTREE_READ_PATH_DONT_CROSS_MOUNT;
 
-	mtree_spec_set_read_keywords(spec, keywords);
-	mtree_spec_set_read_options(spec, roptions);
+	mtree_spec_set_read_path_keywords(spec, keywords);
+	mtree_spec_set_read_options(spec, options);
 	return (spec);
 }
 
-mtree_spec *
+struct mtree_spec *
+create_spec_with_default_filter(void)
+{
+	struct mtree_spec *spec;
+
+	spec = create_spec();
+	if (spec == NULL)
+		return (NULL);
+
+	mtree_spec_set_read_filter(spec, filter_spec, NULL);
+	return (spec);
+}
+
+int
+filter_spec(struct mtree_entry *entry, void *user_data)
+{
+	const char *name;
+	const char *path;
+
+	/* Unused */
+	(void)user_data;
+
+	name = mtree_entry_get_name(entry);
+	path = mtree_entry_get_path(entry);
+	if (check_excludes(name, path))
+		return (MTREE_ENTRY_SKIP | MTREE_ENTRY_SKIP_CHILDREN);
+	if (!find_only(path))
+		return (MTREE_ENTRY_SKIP | MTREE_ENTRY_SKIP_CHILDREN);
+
+	return (MTREE_ENTRY_KEEP);
+}
+
+struct mtree_spec *
 read_spec(FILE *fp)
 {
-	mtree_spec *spec;
+	struct mtree_spec *spec;
 
 	assert(fp != NULL);
 
@@ -82,7 +114,8 @@ read_spec(FILE *fp)
 	if (spec == NULL)
 		return (NULL);
 
-	if (mtree_spec_read_file(spec, fp) != 0) {
+	if (mtree_spec_read_spec_file(spec, fp) != 0) {
+		mtree_err("%s", mtree_spec_get_read_error(spec));
 		mtree_spec_free(spec);
 		spec = NULL;
 	}
@@ -92,9 +125,9 @@ read_spec(FILE *fp)
 int
 compare_spec(FILE *f1, FILE *f2, FILE *fw)
 {
-	mtree_spec *spec1, *spec2;
-	mtree_spec_diff *diff;
-	int ret;
+	struct mtree_spec	*spec1, *spec2;
+	struct mtree_spec_diff	*diff;
+	int			 ret;
 
 	assert(f1 != NULL);
 	assert(f2 != NULL);
@@ -108,12 +141,13 @@ compare_spec(FILE *f1, FILE *f2, FILE *fw)
 		mtree_spec_free(spec1);
 		return (-1);
 	}
-
-	// XXX should return MISMATCHEXIT on difference?
-	diff = mtree_spec_diff_create(spec1, spec2);
-	if (diff != NULL)
-		ret = mtree_spec_diff_write_file(diff, fw);
-	else
+	diff = mtree_spec_diff_create(spec1, spec2, MTREE_KEYWORD_MASK_ALL, 0);
+	if (diff != NULL) {
+		if (mtree_spec_diff_get_different(diff) != NULL)
+			ret = MISMATCHEXIT;
+		else
+			ret = mtree_spec_diff_write_file(diff, fw);
+	} else
 		ret = -1;
 
 	mtree_spec_free(spec1);
@@ -124,8 +158,8 @@ compare_spec(FILE *f1, FILE *f2, FILE *fw)
 int
 read_write_spec(FILE *fr, FILE *fw, int path_last)
 {
-	mtree_spec *spec;
-	int ret;
+	struct mtree_spec	*spec;
+	int			 ret;
 
 	assert(fr != NULL);
 	assert(fw != NULL);
@@ -133,14 +167,12 @@ read_write_spec(FILE *fr, FILE *fw, int path_last)
 	spec = read_spec(fr);
 	if (spec == NULL)
 		return (-1);
-
 	if (path_last)
 		mtree_spec_set_write_format(spec, MTREE_FORMAT_2_0_PATH_LAST);
 	else
 		mtree_spec_set_write_format(spec, MTREE_FORMAT_2_0);
 
 	ret = mtree_spec_write_file(spec, fw);
-
 	mtree_spec_free(spec);
 	return (ret);
 }
@@ -148,9 +180,9 @@ read_write_spec(FILE *fr, FILE *fw, int path_last)
 static void
 write_spec_header(FILE *fp, const char *tree)
 {
-	char host[MAXHOSTNAMELEN + 1];
-	const char *user;
-	time_t clocktime;
+	char		 host[MAXHOSTNAMELEN + 1];
+	const char	*user;
+	time_t		 clocktime;
 
 	if (gethostname(host, sizeof(host)) == 0)
 		host[sizeof(host) - 1] = '\0';
@@ -177,14 +209,13 @@ write_spec_header(FILE *fp, const char *tree)
 int
 write_spec_tree(FILE *fw, const char *tree)
 {
-	mtree_spec *spec;
-	int woptions;
-	int ret;
+	struct mtree_spec	*spec;
+	int			 options;
+	int			 ret;
 
 	assert(fw != NULL);
-	assert(tree != NULL);
 
-	spec = create_spec();
+	spec = create_spec_with_default_filter();
 	if (spec == NULL)
 		return (-1);
 	if (tree == NULL)
@@ -195,18 +226,20 @@ write_spec_tree(FILE *fw, const char *tree)
 		if (!nflag)
 			write_spec_header(fw, tree);
 
-		woptions =
+		options =
 		    MTREE_WRITE_USE_SET |
 		    MTREE_WRITE_INDENT |
 		    MTREE_WRITE_SPLIT_LONG_LINES;
 		if (jflag)
-			woptions |= MTREE_WRITE_INDENT_LEVEL;
+			options |= MTREE_WRITE_INDENT_LEVEL;
 		if (!nflag)
-			woptions |= MTREE_WRITE_DIR_COMMENTS;
+			options |= MTREE_WRITE_DIR_COMMENTS;
 		if (!bflag)
-			woptions |= MTREE_WRITE_DIR_BLANK_LINES;
+			options |= MTREE_WRITE_DIR_BLANK_LINES;
+		if (flavor == FLAVOR_NETBSD6)
+			options |= MTREE_WRITE_ENCODE_CSTYLE;
 
-		mtree_spec_set_write_options(spec, woptions);
+		mtree_spec_set_write_options(spec, options);
 		mtree_spec_set_write_format(spec, MTREE_FORMAT_1_0);
 
 		ret = mtree_spec_write_file(spec, fw);

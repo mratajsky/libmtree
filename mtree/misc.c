@@ -29,10 +29,15 @@
 #include <sys/stat.h>
 
 #include <assert.h>
-#include <libmtree/mtree.h>
+#include <errno.h>
+#include <grp.h>
+#include <mtree.h>
+#include <pwd.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
-#include "mtree.h"
+#include "local.h"
 
 long
 parse_keyword(const char *name)
@@ -44,34 +49,166 @@ parse_keyword(const char *name)
 	if (strcmp(name, "all") == 0)
 		return (MTREE_KEYWORD_MASK_ALL);
 
-	keyword = mtree_parse_keyword(name);
-	if (keyword == -1)
+	keyword = mtree_keyword_parse(name);
+	printf("%s->%ld\n",name,keyword);
+	if (keyword == 0)
 		mtree_err("unknown keyword `%s'", name);
 
 	return (keyword);
 }
 
-const char *
-file_type_string(mode_t mode)
+static void
+add_tag(taglist *list, char *elem)
 {
 
-	switch (mode & S_IFMT) {
-	case S_IFBLK:
-		return ("block");
-	case S_IFCHR:
-		return ("char");
-	case S_IFDIR:
-		return ("dir");
-	case S_IFIFO:
-		return ("fifo");
-	case S_IFREG:
-		return ("file");
-	case S_IFLNK:
-		return ("link");
-	case S_IFSOCK:
-		return ("socket");
-	default:
-		return ("unknown");
+#define	TAG_CHUNK 20
+
+	if ((list->count % TAG_CHUNK) == 0) {
+		char **new;
+
+		new = realloc(list->list, (list->count + TAG_CHUNK) * sizeof(char *));
+		if (new == NULL)
+			mtree_err("memory allocation error");
+		list->list = new;
 	}
-	/* NOTREACHED */
+	list->list[list->count] = elem;
+	list->count++;
+}
+
+void
+parse_tags(taglist *list, char *args)
+{
+	char *p;
+
+	if (args == NULL) {
+		add_tag(list, NULL);
+		return;
+	}
+	while ((p = strsep(&args, ",")) != NULL) {
+		char	*e;
+		int	 len;
+
+		if (*p == '\0')
+			continue;
+		len = strlen(p) + 3;	/* "," + p + ",\0" */
+		if ((e = malloc(len)) == NULL)
+			mtree_err("memory allocation error");
+
+		snprintf(e, len, ",%s,", p);
+		add_tag(list, e);
+	}
+}
+
+/*
+ * matchtags
+ *	returns 0 if there's a match from the exclude list in the node's tags,
+ *	or there's an include list and no match.
+ *	return 1 otherwise.
+ */
+int
+match_tags(const char *tags)
+{
+	int i;
+
+	if (tags != NULL) {
+		for (i = 0; i < exclude_tags.count; i++)
+			if (strstr(tags, exclude_tags.list[i]))
+				break;
+		if (i < exclude_tags.count)
+			return (0);
+
+		for (i = 0; i < include_tags.count; i++)
+			if (strstr(tags, include_tags.list[i]))
+				break;
+		if (i > 0 && i == include_tags.count)
+			return (0);
+	} else if (include_tags.count > 0)
+		return (0);
+
+	return (1);
+}
+
+char *
+convert_flags_to_string(uint32_t flags, const char *def)
+{
+	char *str = NULL;
+
+#ifdef HAVE_FFLAGSTOSTR
+	str = fflagstostr((u_long) flags);
+	if (str == NULL)
+		mtree_err("fflagstostr: %s", strerror(errno));
+	if (str[0] == '\0') {
+		free(str);
+		if (def != NULL) {
+			str = strdup(def);
+			if (str == NULL)
+				mtree_err("memory allocation error");
+		} else
+			str = NULL;
+	}
+#else
+	(void)flags;
+	(void)def;
+#endif
+	return (str);
+}
+
+int
+convert_string_to_flags(const char *s, uint32_t *flags)
+{
+
+#ifdef HAVE_STRTOFFLAGS
+	char     *tmp = (char *) s;
+	u_long	  fl;
+
+	if (strtofflags(&tmp, &fl, NULL) == 0) {
+		*flags = (uint32_t) fl;
+		return (0);
+	} else
+		return (-1);
+#else
+	(void)s;
+	(void)flags;
+	return (0);
+#endif
+}
+
+int
+convert_gname_to_gid(const char *gname, gid_t *gid)
+{
+#ifdef HAVE_GID_FROM_GROUP
+	return (gid_from_group(gname, gid));
+#else
+	struct group *gr;
+
+	errno = 0;
+	if ((gr = getgrnam(gname)) == NULL) {
+		if (errno != 0)
+			mtree_err("getgrnam: %s", strerror(errno));
+		return (-1);
+	} else {
+		*gid = gr->gr_gid;
+		return (0);
+	}
+#endif
+}
+
+int
+convert_uname_to_uid(const char *uname, uid_t *uid)
+{
+#ifdef HAVE_UID_FROM_USER
+	return (uid_from_user(uname, uid));
+#else
+	struct passwd *pw;
+
+	errno = 0;
+	if ((pw = getpwnam(uname)) == NULL) {
+		if (errno != 0)
+			mtree_err("getpwnam: %s", strerror(errno));
+		return (-1);
+	} else {
+		*uid = pw->pw_uid;
+		return (0);
+	}
+#endif
 }

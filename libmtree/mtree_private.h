@@ -30,29 +30,55 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <fts.h>
-#include <inttypes.h>
+#include <stdint.h>
+#include <stddef.h>
 
 #include "compat.h"
-#include "mtree.h"
 
-#define MAX_LINE_LENGTH			1024
-
-#define MTREE_ENTRY_MODE_MASK		(S_ISUID | S_ISGID | S_ISVTX |	\
+#define MAX_LINE_LENGTH			4096
+#define MODE_MASK			(S_ISUID | S_ISGID | S_ISVTX |	\
 					 S_IRWXU | S_IRWXG | S_IRWXO)
+#define TRIE_ITEM			((void *) (size_t) 1)
 
+#ifndef MIN
+#define MIN(a, b)			((a) < (b) ? (a) : (b))
+#endif
+#ifndef MAX
+#define MAX(a, b)			((a) > (b) ? (a) : (b))
+#endif
+
+#ifdef MTREE_WARN
+#define WARN(...) do {			\
+	fprintf(stderr, __VA_ARGS__);	\
+	fprintf(stderr, "\n");		\
+} while (0)
+#else
+#define WARN(...) do { } while (0)
+#endif
+
+struct mtree_cksum;
 struct mtree_device;
 struct mtree_entry;
 struct mtree_entry_data;
 struct mtree_spec;
 struct mtree_spec_diff;
+struct mtree_timespec;
 struct mtree_trie;
 struct mtree_reader;
 struct mtree_writer;
 
 /*
- * mtree_device
- *
+ * struct mtree_cksum
+ */
+struct mtree_cksum {
+	uint32_t		 init;		/* initializer */
+	uint32_t		 crc;		/* current checksum */
+	size_t			 len;		/* current length of input */
+	int			 done;
+};
+
+/*
+ * struct mtree_device
  */
 struct mtree_device {
 	mtree_device_format	 format;	/* device entry format */
@@ -62,84 +88,133 @@ struct mtree_device {
 	dev_t			 minor;		/* minor number */
 	dev_t			 unit;		/* unit number (for bsdos) */
 	dev_t			 subunit;	/* subunit number (for bsdos) */
+	int			 err;
 	char			*errstr;	/* current error message */
 };
 
+/*
+ * struct mtree_entry_data
+ */
 struct mtree_entry_data {
-	mtree_entry_type type;
-	uint32_t	 cksum;
-	long		 keywords;
-	char		*contents;
+	uint64_t		 keywords;
+	mtree_entry_type	 type;		/* keyword values */
+	uint32_t		 cksum;
+	char			*contents;
 	struct mtree_device	*device;
-	char		*flags;
-	char		*gname;
-	char		*link;
-	char		*tags;
-	char		*uname;
-	char		*md5digest;
-	char		*rmd160digest;
-	char		*sha1digest;
-	char		*sha256digest;
-	char		*sha384digest;
-	char		*sha512digest;
-	/* stat(2) data */
-	gid_t		st_gid;
-	ino_t		st_ino;
-	mode_t		st_mode;
-	struct timespec st_mtim;
-	nlink_t		st_nlink;
-	off_t		st_size;
-	uid_t		st_uid;
+	struct mtree_device	*resdevice;
+	char			*flags;
+	char			*gname;
+	char			*link;
+	char			*tags;
+	char			*uname;
+	char			*md5digest;
+	char			*rmd160digest;
+	char			*sha1digest;
+	char			*sha256digest;
+	char			*sha384digest;
+	char			*sha512digest;
+	int64_t			 st_gid;	/* stat(2) values */
+	uint64_t		 st_ino;
+	int			 st_mode;
+	struct mtree_timespec	 st_mtim;
+	int64_t			 st_nlink;
+	int64_t			 st_size;
+	int64_t			 st_uid;
 };
 
+/*
+ * Entry flags, for internal use onyl.
+ */
+#define __MTREE_ENTRY_VIRTUAL		0x01	/* artificially created entry */
+#define __MTREE_ENTRY_SKIP		0x02	/* skip the entry */
+#define __MTREE_ENTRY_SKIP_CHILDREN	0x04	/* skip children of the entry */
+
+/*
+ * struct mtree_entry
+ */
 struct mtree_entry {
-	struct mtree_entry 	*prev;
-	struct mtree_entry 	*next;
-	struct mtree_entry 	*parent;
-	char            *path;
-	char            *name;
-	struct mtree_entry_data data;
+	struct mtree_entry	*prev;
+	struct mtree_entry	*next;
+	struct mtree_entry	*parent;
+	struct mtree_entry_data  data;
+	char			*path;
+	char			*name;
+	char			*orig;
+	char			*dirname;
+	int			 flags;
 };
 
+/*
+ * struct mtree_reader
+ */
 struct mtree_reader {
 	struct mtree_entry 	*entries;
 	struct mtree_entry 	*parent;
-	struct mtree_entry_data defaults;
-	char 		*buf;
-	int   		 buflen;
-	long		 keywords;
-	int		 options;
+	struct mtree_entry	*loose;
+	struct mtree_entry_data  defaults;
+	char			*buf;
+	int			 buflen;
+	int			 path_last;
+	dev_t			 base_dev;
+	char			*error;
+	uint64_t		 path_keywords;
+	uint64_t		 spec_keywords;
+	int			 options;
+	mtree_entry_filter_fn	 filter;
+	void			*filter_data;
+	struct mtree_trie	*skip_trie;
 };
 
-typedef int (*writer_func)(struct mtree_writer *, const char *);
+typedef int (*writer_fn)(struct mtree_writer *, const char *);
+/*
+ * struct mtree_writer
+ */
 struct mtree_writer {
-	struct mtree_entry 	*entries;
 	union {
-		FILE	*fp;
-		int	 fd;
+		FILE		*fp;
+		int		 fd;
+		struct {
+			mtree_writer_fn  fn;
+			void		*data;
+		} fn;
 	} dst;
-	struct mtree_entry_data defaults;
-	mtree_format	 format;
-	int		 options;
-	int		 indent;
-	writer_func	 writer;
+	struct mtree_entry_data  defaults;
+	mtree_format		 format;
+	int			 options;
+	int			 indent;
+	uint64_t		 keywords;
+	writer_fn		 writer;
 };
 
+/*
+ * struct mtree_spec_diff
+ */
 struct mtree_spec_diff {
 	struct mtree_entry	*s1only;
 	struct mtree_entry	*s2only;
 	struct mtree_entry	*diff;
 	struct mtree_entry	*match;
+	struct mtree_writer	*writer;
 };
 
+/*
+ * struct mtree_spec
+ */
 struct mtree_spec {
 	struct mtree_entry 	*entries;
 	struct mtree_reader 	*reader;
 	struct mtree_writer 	*writer;
-	long		 read_keywords;
-	int		 read_options;
+	int			 reading;
+	uint64_t		 read_keywords;
+	int			 read_options;
+	mtree_entry_filter_fn	 read_filter;
+	void			*read_filter_data;
 };
 
+typedef void (*mtree_trie_free_fn)(void *);
+/*
+ * struct mtree_trie
+ */
 struct mtree_trie {
 	void			*item;
 	char			*key;
@@ -150,85 +225,99 @@ struct mtree_trie {
 };
 
 /*
- * mtree_keyword_map
+ * struct mtree_keyword_map
  * Assists conversion between keyword names and constants
  */
 struct mtree_keyword_map {
-	char		*name;
-	long		 keyword;
+	char			*name;
+	uint64_t		 keyword;
 };
 
 extern const struct mtree_keyword_map mtree_keywords[];
 
 /* mtree_device.c */
+int			 mtree_device_compare(const struct mtree_device *dev1,
+			    const struct mtree_device *dev2);
 void			 mtree_device_copy_data(struct mtree_device *dev,
-			    struct mtree_device *from);
-int			 mtree_device_string(struct mtree_device *dev, char **s);
-int			 mtree_device_parse(struct mtree_device *dev, const char *s);
-const char		*mtree_device_error(struct mtree_device *dev);
+			    const struct mtree_device *from);
 
 /* mtree_entry.c */
-struct mtree_entry	*mtree_entry_create(void);
-struct mtree_entry	*mtree_entry_create_from_ftsent(FTSENT *ftsent, long keywords);
-void			 mtree_entry_free(struct mtree_entry *entry);
-void			 mtree_entry_free_all(struct mtree_entry *entries);
+struct mtree_entry	*mtree_entry_create_empty(void);
+int			 mtree_entry_data_compare_keyword(
+			    const struct mtree_entry_data *data1,
+			    const struct mtree_entry_data *data2,
+			    uint64_t keyword);
+void			 mtree_entry_data_copy_keywords(
+			    struct mtree_entry_data *data,
+			    const struct mtree_entry_data *from,
+			    uint64_t keywords, int overwrite);
 void			 mtree_entry_free_data_items(struct mtree_entry_data *data);
-struct mtree_entry	*mtree_entry_copy(struct mtree_entry *entry);
-struct mtree_entry	*mtree_entry_copy_all(struct mtree_entry *entry);
-void			 mtree_entry_copy_missing_keywords(struct mtree_entry *entry,
-			    struct mtree_entry_data *from);
-int			 mtree_entry_compare(struct mtree_entry *entry1,
-			    struct mtree_entry *entry2, long keywords, long *diff);
-int			 mtree_entry_compare_keyword(struct mtree_entry *entry1,
-			    struct mtree_entry *entry2, long keyword);
-int			 mtree_entry_compare_keywords(struct mtree_entry *entry1,
-			    struct mtree_entry *entry2, long keywords, long *diff);
-int			 mtree_entry_data_compare_keyword(struct mtree_entry_data *data1,
-			    struct mtree_entry_data *data2, long keyword);
-struct mtree_entry 	*mtree_entry_prepend(struct mtree_entry *entry,
-			    struct mtree_entry *child);
-struct mtree_entry 	*mtree_entry_append(struct mtree_entry *entry,
-			    struct mtree_entry *child);
-struct mtree_entry	*mtree_entry_reverse(struct mtree_entry *entry);
-struct mtree_entry	*mtree_entry_unlink(struct mtree_entry *head,
-			    struct mtree_entry *entry);
 
 /* mtree_reader.c */
 struct mtree_reader	*mtree_reader_create(void);
 void			 mtree_reader_free(struct mtree_reader *r);
 void			 mtree_reader_reset(struct mtree_reader *r);
+int			 mtree_reader_read_path(struct mtree_reader *r, const char *path,
+			    struct mtree_entry **entries);
 int			 mtree_reader_add(struct mtree_reader *r, const char *s,
-			    int len);
+			    ssize_t len);
+int			 mtree_reader_add_from_file(struct mtree_reader *r, FILE *fp);
+int			 mtree_reader_add_from_fd(struct mtree_reader *r, int fd);
 int			 mtree_reader_finish(struct mtree_reader *r,
 			    struct mtree_entry **entries);
+
+int			 mtree_reader_get_options(struct mtree_reader *r);
 void			 mtree_reader_set_options(struct mtree_reader *r, int options);
-void			 mtree_reader_set_keywords(struct mtree_reader *r,
-			    long keywords);
+void			 mtree_reader_set_filter(struct mtree_reader *r,
+			    mtree_entry_filter_fn f, void *user_data);
+
+uint64_t		 mtree_reader_get_spec_keywords(struct mtree_reader *r);
+void			 mtree_reader_set_spec_keywords(struct mtree_reader *r,
+			    uint64_t keywords);
+uint64_t		 mtree_reader_get_path_keywords(struct mtree_reader *r);
+void			 mtree_reader_set_path_keywords(struct mtree_reader *r,
+			    uint64_t keywords);
+
+const char		*mtree_reader_get_error(struct mtree_reader *r);
+void			 mtree_reader_set_error(struct mtree_reader *r,
+			    int err, const char *format, ...);
 
 /* mtree_writer.c */
 struct mtree_writer	*mtree_writer_create(void);
 void			 mtree_writer_free(struct mtree_writer *w);
-int			 mtree_writer_write_file(struct mtree_writer *w,
-			    struct mtree_entry *entries, FILE *fp);
-int			 mtree_writer_write_fd(struct mtree_writer *w,
-			    struct mtree_entry *entries, int fd);
+const char		*mtree_writer_get_error(struct mtree_writer *w);
+mtree_format		 mtree_writer_get_format(struct mtree_writer *w);
 void			 mtree_writer_set_format(struct mtree_writer *w,
 			    mtree_format format);
+int			 mtree_writer_get_options(struct mtree_writer *w);
 void			 mtree_writer_set_options(struct mtree_writer *w, int options);
+void			 mtree_writer_set_output_file(struct mtree_writer *w, FILE *fp);
+void			 mtree_writer_set_output_fd(struct mtree_writer *w, int fd);
+void			 mtree_writer_set_output_writer(struct mtree_writer *w,
+			    mtree_writer_fn f, void *user_data);
+int			 mtree_writer_write_entries(struct mtree_writer *w,
+			    struct mtree_entry *entries);
 
 /* mtree_trie.c */
 struct mtree_trie	*mtree_trie_create(void);
-void			 mtree_trie_free(struct mtree_trie *trie);
+void			 mtree_trie_free(struct mtree_trie *trie, mtree_trie_free_fn f);
 int			 mtree_trie_insert(struct mtree_trie *trie, const char *key,
 			    void *item);
 void			*mtree_trie_find(struct mtree_trie *trie, const char *key);
 size_t			 mtree_trie_count(struct mtree_trie *trie);
 
 /* mtree_utils.c */
-int		 mtree_copy_string(char **dst, const char *src);
-char		*mtree_get_gname(gid_t gid);
-char		*mtree_get_link(const char *path);
-char		*mtree_get_uname(uid_t uid);
-char		*mtree_get_vispath(const char *path);
+int64_t			 mtree_atol(const char *p, const char **endptr);
+int64_t			 mtree_atol8(const char *p, const char **endptr);
+int64_t			 mtree_atol10(const char *p, const char **endptr);
+int64_t			 mtree_atol16(const char *p, const char **endptr);
+int			 mtree_cleanup_path(const char *path, char **ppart,
+			    char **npart);
+int			 mtree_copy_string(char **dst, const char *src);
+char			*mtree_getcwd(void);
+char			*mtree_gname_from_gid(gid_t gid);
+char			*mtree_uname_from_uid(gid_t gid);
+char			*mtree_readlink(const char *path);
+char			*mtree_vispath(const char *path, int style);
 
 #endif /* !_LIBMTREE_MTREE_PRIVATE_H_ */

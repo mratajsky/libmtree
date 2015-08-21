@@ -36,7 +36,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "mtree.h"
+#include "compat.h"
+#include "local.h"
 
 /*
  * We're assuming that there won't be a whole lot of excludes,
@@ -70,7 +71,7 @@ read_excludes(const char *file)
 			continue;
 
 		if ((e = malloc(sizeof(*e))) == NULL)
-			mtree_err("%s", strerror(errno));
+			mtree_err("memory allocation error");
 
 		e->glob = line;
 		if (strchr(e->glob, '/') != NULL)

@@ -43,24 +43,16 @@
 #ifndef MAXPATHLEN
 # define MAXPATHLEN		1024
 #endif
+#if HAVE_NETDB_H
+/* For MAXHOSTNAMELEN on some platforms. */
+# include <netdb.h>
+#endif
+#ifndef MAXHOSTNAMELEN
+# define MAXHOSTNAMELEN		256
+#endif
 
 #ifndef __arraycount
 # define __arraycount(x)	(sizeof(x) / sizeof(*(x)))
-#endif
-
-#ifndef __BEGIN_DECLS
-# ifdef __cplusplus
-#  define __BEGIN_DECLS	extern "C" {
-# else
-#  define __BEGIN_DECLS
-# endif
-#endif
-#ifndef __END_DECLS
-# ifdef __cplusplus
-#  define __END_DECLS	}
-# else
-#  define __END_DECLS
-# endif
 #endif
 
 #ifndef HAVE_FPARSELN
@@ -118,8 +110,6 @@
  */
 #define	UNVIS_END	_VIS_END	/* no more characters */
 
-__BEGIN_DECLS
-
 #ifndef HAVE_FGETLN
 char	*fgetln(FILE *fp, size_t *lenp);
 #endif
@@ -154,7 +144,5 @@ int	 strunvisx(char *, const char *, int);
 int	 strnunvisx(char *, size_t, const char *, int);
 
 int	 unvis(char *, int, int *, int);
-
-__END_DECLS
 
 #endif /* _COMPAT_H_ */

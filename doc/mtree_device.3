@@ -1,0 +1,233 @@
+.\"
+.\" Copyright (c) 2015 Michal Ratajsky <michal@FreeBSD.org>
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.Dd August 10, 2015
+.Dt MTREE_DEVICE 3
+.Os
+.Sh NAME
+.Nm mtree_device
+.Nd device number structure
+.Sh LIBRARY
+libmtree
+.Sh SYNOPSIS
+.In mtree.h
+.Ft struct mtree_device *
+.Fn mtree_device_create
+.Ft mtree_device_format
+.Fn mtree_device_get_format "struct mtree_device *device"
+.Ft void
+.Fn mtree_device_set_format "struct mtree_device *device" "mtree_device_format format"
+.Ft dev_t
+.Fn mtree_device_get_value "struct mtree_device *device"
+.Ft void
+.Fn mtree_device_set_value "struct mtree_device *device" "int field" "dev_t value"
+.Ft int
+.Fn mtree_device_get_fields "struct mtree_device *device"
+.Ft int
+.Fn mtree_device_parse "struct mtree_device *device" "const char *str"
+.Ft const char *
+.Fn mtree_device_string "struct mtree_device *device"
+.Ft const char *
+.Fn mtree_device_get_error "struct mtree_device *device"
+.Ft struct mtree_device *
+.Fn mtree_device_copy "struct mtree_device *device"
+.Ft void
+.Fn mtree_device_reset "struct mtree_device *device"
+.Ft void
+.Fn mtree_device_free "struct mtree_device *device"
+.Sh DESCRIPTION
+The
+.Tn mtree_device
+structure bundles any combination of device number and broken up parts of device
+number (such as
+.Xr major 3
+and
+.Xr minor 3 ) ,
+along with format, specifying how to create a device number from the
+parts.
+.Pp
+It is intended to represent all possible values of the
+.Em device
+and
+.Em resdevice
+mtree spec keywords.
+.Pp
+Use
+.Fn mtree_device_create
+to create a new
+.Tn mtree_device
+structure.
+.Pp
+The
+.Fn mtree_device_get_format
+and
+.Fn mtree_device_set_format
+functions get and set the device number
+.Fa format .
+The format specifies which procedure is used to assemble a device number.
+.Pp
+The following formats are supported:
+.Pp
+.Bd -literal -offset indent -compact
+MTREE_DEVICE_FORMAT_386BSD	The 386BSD format.
+MTREE_DEVICE_FORMAT_4BSD	The 4BSD format.
+MTREE_DEVICE_FORMAT_BSDOS	The BSD/OS format.
+MTREE_DEVICE_FORMAT_FREEBSD	The FreeBSD format.
+MTREE_DEVICE_FORMAT_HPUX	The HP-UX format.
+MTREE_DEVICE_FORMAT_ISC
+MTREE_DEVICE_FORMAT_LINUX	The Linux format.
+MTREE_DEVICE_FORMAT_NATIVE	The native format. This is the default format.
+MTREE_DEVICE_FORMAT_NETBSD	The NetBSD format.
+MTREE_DEVICE_FORMAT_OSF1
+MTREE_DEVICE_FORMAT_SCO
+MTREE_DEVICE_FORMAT_SOLARIS
+MTREE_DEVICE_FORMAT_SUNOS	The SunOS format.
+MTREE_DEVICE_FORMAT_SVR3
+MTREE_DEVICE_FORMAT_SVR4
+MTREE_DEVICE_FORMAT_ULTRIX	The ULTRIX format.
+.Ed
+.Pp
+Use
+.Fn mtree_device_get_value
+and
+.Fn mtree_device_set_value
+to get and set the device number, or some part of the device number. The
+.Fa field
+argument is used to denote, which value to retrieve or change.
+.Pp
+The following fields are available:
+.Pp
+.Bl -tag -offset indent
+.It MTREE_DEVICE_FIELD_NUMBER
+The device number. This number fully describes a device file.
+.It MTREE_DEVICE_FIELD_MAJOR
+The major device number, identifying the class of a device.
+.It MTREE_DEVICE_FIELD_MINOR
+The minor device number, identifying the instance of a device in the major class.
+.Pp
+The major and minor numbers together fully describe a device file.
+.It MTREE_DEVICE_FIELD_UNIT
+The unit part of the device number. This field is only supported with the
+.Em bsdos
+format.
+.It MTREE_DEVICE_FIELD_SUBUNIT
+The subunit part of the device number. This field is only supported with the
+.Em bsdos
+format.
+.Pp
+The major, unit and subunit numbers fully describe a device file.
+.El
+.Pp
+The
+.Fn mtree_device_get_fields
+function can be used to find out which fields are set for the given
+.Fa device .
+The returned value is a bitwise OR of any number of the fields described
+above.
+.Pp
+The
+.Fn mtree_device_parse
+function modifies an
+.Tn mtree_device
+structure to match device information in the string
+.Fa str .
+The string must be in one of the formats for
+.Em device
+and
+.Em resdevice
+mtree spec keywords, as described in
+.Xr mtree 5 .
+.Pp
+The
+.Fn mtree_device_string
+function convert an
+.Tn mtree_device
+structure to a string in one of the formats described for the
+.Em device
+and
+.Em resdevice
+keywords.
+
+.Sh RETURN VALUE
+The
+.Fn mtree_device_create
+function returns a pointer to a newly allocated
+.Tn mtree_device
+structure, or
+.Dv NULL
+if memory allocation fails.
+.Pp
+The
+.Fn mtree_digest_get_result
+function returns the calculated digest as a string.
+.Pp
+Both
+.Fn mtree_digest_file
+and
+.Fn mtree_digest_fd
+return zero on success. On error, they return -1 and set
+.Va errno
+appropriately.
+.Sh ERRORS
+The
+.Fn mtree_digest_fd
+function may fail and set
+.Va errno
+for any of the errors specified for the routines
+.Xr malloc 3
+and
+.Xr read 2 .
+.Pp
+The
+.Fn mtree_digest_path
+function may also fail and set
+.Va errno
+for any of the errors specified for the routine
+.Xr open 2 .
+.Sh EXAMPLES
+.Bd -literal -offset indent
+struct mtree_device *dev;
+dev_t devnum;
+
+dev = mtree_device_create();
+if (dev == NULL)
+	err(1, "memory allocation error");
+if (mtree_device_parse(dev, "format=freebsd,major=20,minor=20") != 0)
+	err(1, "device string not understood");
+
+devnum = mtree_device_get_value(dev, MTREE_DEVICE_FIELD_NUMBER);
+.Ed
+.Sh SEE ALSO
+.Xr mtree 5 ,
+.Xr mtree_entry 3 ,
+.Xr makedev 3 ,
+.Xr major 3 ,
+.Xr minor 3
+.Sh AUTHORS
+.An -nosplit
+The
+.Nm libmtree
+library was written by
+.An Michal Ratajsky Aq michal@FreeBSD.org .

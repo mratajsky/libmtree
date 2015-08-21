@@ -32,13 +32,14 @@
 
 #include <assert.h>
 #include <errno.h>
-#include <inttypes.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "mtree.h"
+#include "compat.h"
+#include "local.h"
 
 struct hentry {
 	char		*str;
@@ -84,7 +85,7 @@ hash_insert(char *str, uint32_t h)
 
 	e = malloc(sizeof(*e));
 	if (e == NULL)
-		mtree_err("%s", strerror(errno));
+		mtree_err("memory allocation error");
 
 	e->str = str;
 	e->hash = h;
@@ -108,7 +109,7 @@ fill(char *str)
 
 		x = strdup(str);
 		if (x == NULL)
-			mtree_err("%s", strerror(errno));
+			mtree_err("memory allocation error");
 		hash_insert(x, h);
 		fill(str);
 	}
@@ -125,7 +126,7 @@ load_only(const char *fname)
 	assert(fname != NULL);
 
 	if ((fp = fopen(fname, "r")) == NULL)
-		mtree_err("Cannot open `%s'", fname);
+		mtree_err("Cannot open `%s': %s", fname, strerror(errno));
 
 	while ((line = fparseln(fp, &len, &lineno, NULL, FPARSELN_UNESCALL))) {
 		uint32_t h;

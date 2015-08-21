@@ -72,7 +72,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "mtree.h"
+#include "local.h"
 
 #if defined(HAVE_PWCACHE_USERDB) && defined(HAVE_PWCACHE_GROUPDB)
 #ifndef UID_MAX

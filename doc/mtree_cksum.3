@@ -1,0 +1,158 @@
+.\"
+.\" Copyright (c) 2015 Michal Ratajsky <michal@FreeBSD.org>
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.Dd August 10, 2015
+.Dt MTREE_CKSUM 3
+.Os
+.Sh NAME
+.Nm mtree_cksum
+.Nd calculate POSIX 1003.2 checksum
+.Sh LIBRARY
+libmtree
+.Sh SYNOPSIS
+.In mtree.h
+.Ft struct mtree_cksum *
+.Fn mtree_cksum_create "uint32_t init"
+.Ft void
+.Fn mtree_cksum_update "struct mtree_cksum *cksum " "const unsigned char *data" "size_t len"
+.Ft uint32_t
+.Fn mtree_cksum_get_result "struct mtree_cksum *cksum"
+.Ft void
+.Fn mtree_cksum_reset "struct mtree_cksum *cksum" "uint32_t init"
+.Ft void
+.Fn mtree_cksum_free "struct mtree_cksum *cksum"
+.In mtree.h
+.In mtree_file.h
+.Ft int
+.Fn mtree_cksum_path "const char *path" "uint32_t *crc"
+.Ft int
+.Fn mtree_cksum_fd "int fd" "uint32_t *crc"
+.Sh DESCRIPTION
+These functions provide support for calculating the POSIX 1003.2 checksum. In
+mtree spec entries, this number is used as a value of the
+.Em checksum
+keyword.
+.Pp
+It is seldom necessary to use these functions directly. Both
+.Xr mtree_spec 3
+and
+.Xr mtree_entry 3
+provide facilities for calculating the checksum and including it in the
+.Em checksum
+keyword of mtree spec entries.
+.Pp
+Use
+.Fn mtree_cksum_create
+to create a new
+.Tn mtree_cksum
+structure. The
+.Fa init
+argument specifies the initial value of the checksum. Unless some special
+initial value is needed, use the constant
+.Dv MTREE_CKSUM_DEFAULT_INIT
+to zero initialize the checksum.
+.Pp
+The
+.Fn mtree_cksum_update
+function should then be called repeatedly to update the checksum with
+.Fa data
+of size
+.Fa len .
+.Pp
+Use
+.Fn mtree_cksum_get_result
+to finalize the computation and retrieve the resulting checksum. The finalization
+step uses the accumulated length of input to update the checksum at the end of
+the computation. Therefore it is an error to call this function to retrieve an
+intermediate result before the whole input has been passed to
+.Fn mtree_cksum_update .
+.Pp
+Use
+.Fn mtree_cksum_free
+to release the resources allocated for the structure.
+.Pp
+The
+.Fn mtree_cksum_reset
+function may be used to reset an
+.Tn mtree_cksum
+structure to its initial state. The
+.Fa init
+argument is the initial value of the checksum, just as in
+.Fn mtree_cksum_create .
+.Pp
+The
+.Fn mtree_cksum_path
+and
+.Fn mtree_cksum_fd
+functions calculate the checksum by reading input from the given file path,
+or an open file descriptor respectively. They both store the resulting checksum
+in
+.Fa crc .
+.Sh RETURN VALUE
+The
+.Fn mtree_cksum_create
+function returns a pointer to a newly allocated
+.Tn mtree_cksum
+structure, or
+.Dv NULL
+if memory allocation fails.
+.Pp
+The
+.Fn mtree_cksum_get_result
+function returns the calculated checksum.
+.Pp
+Both
+.Fn mtree_cksum_file
+and
+.Fn mtree_cksum_fd
+return zero on success. On error, they return -1 and set
+.Va errno
+appropriately.
+.Sh ERRORS
+The
+.Fn mtree_cksum_fd
+function may fail and set
+.Va errno
+for any of the errors specified for the routines
+.Xr malloc 3
+and
+.Xr read 2 .
+.sp
+The
+.Fn mtree_cksum_path
+function may also fail and set
+.Va errno
+for any of the errors specified for the routine
+.Xr open 2 .
+.Sh SEE ALSO
+.Xr cksum 1 ,
+.Xr mtree_entry 3 ,
+.Xr mtree_spec 3
+.Sh AUTHORS
+.An -nosplit
+The
+.Nm libmtree
+library was written by
+.An Michal Ratajsky Aq michal@FreeBSD.org .

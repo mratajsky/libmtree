@@ -1,0 +1,363 @@
+.\"
+.\" Copyright (c) 2015 Michal Ratajsky <michal@FreeBSD.org>
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.Dd August 10, 2015
+.Dt MTREE_DEVICE 3
+.Os
+.Sh NAME
+.Nm mtree_entry
+.Nd mtree spec entry
+.Sh LIBRARY
+libmtree
+.Sh SYNOPSIS
+.In mtree.h
+.Ft const char *
+.Fn mtree_entry_get_path "struct mtree_entry *entry"
+.Ft const char *
+.Fn mtree_entry_get_name "struct mtree_entry *entry"
+.Ft const char *
+.Fn mtree_entry_get_dirname "struct mtree_entry *entry"
+.Ft struct mtree_entry *
+.Fn mtree_entry_get_first "struct mtree_entry *entry"
+.Ft struct mtree_entry *
+.Fn mtree_entry_get_last "struct mtree_entry *entry"
+.Ft struct mtree_entry *
+.Fn mtree_entry_get_previous "struct mtree_entry *entry"
+.Ft struct mtree_entry *
+.Fn mtree_entry_get_next "struct mtree_entry *entry"
+.Ft struct mtree_entry *
+.Fn mtree_entry_append "struct mtree_entry *head" "struct mtree_entry *entry"
+.Ft struct mtree_entry *
+.Fn mtree_entry_prepend "struct mtree_entry *head" "struct mtree_entry *entry"
+.Ft struct mtree_entry *
+.Fn mtree_entry_insert_before "struct mtree_entry *head" "struct mtree_entry *sibling" "struct mtree_entry *entry"
+.Ft struct mtree_entry *
+.Fn mtree_entry_insert_after "struct mtree_entry *head" "struct mtree_entry *sibling" "struct mtree_entry *entry"
+.Ft struct mtree_entry *
+.Fn mtree_entry_unlink "struct mtree_entry *head" "struct mtree_entry *entry"
+.Ft struct mtree_entry *
+.Fn mtree_entry_reverse "struct mtree_entry *head"
+.Ft struct mtree_entry *
+.Fn mtree_entry_sort "struct mtree_entry *head" "mtree_entry_compare_fn cmp"
+.Ft struct mtree_entry *
+.Fn mtree_entry_sort_path "struct mtree_entry *head"
+.Ft size_t
+.Fn mtree_entry_count "struct mtree_entry *start"
+.Ft struct mtree_entry *
+.Fn mtree_entry_merge "struct mtree_entry *head1" "struct mtree_entry *head2" "int options" "struct mtree_entry **mismerged"
+.Ft struct mtree_entry *
+.Fn mtree_entry_merge_fast "struct mtree_entry *head1_merged" "struct mtree_entry *head2" "int options" "struct mtree_entry **mismerged)"
+.Ft struct mtree_entry *
+.Fn mtree_entry_find "struct mtree_entry *start" "const char *path"
+.Ft struct mtree_entry *
+.Fn mtree_entry_find_prefix "struct mtree_entry *start" "const char *path_prefix"
+.Ft int
+.Fn mtree_entry_compare "const struct mtree_entry *entry1" "const struct mtree_entry *entry2" "uint64_t keywords" "uint64_t *diff"
+.Ft int
+.Fn mtree_entry_compare_keywords "const struct mtree_entry *entry1" "const struct mtree_entry *entry2" "uint64_t keywords" "uint64_t *diff"
+.Ft struct mtree_entry *
+.Fn mtree_entry_create "const char *path"
+.Ft struct mtree_entry *
+.Fn mtree_entry_copy "const struct mtree_entry *entry"
+.Ft struct mtree_entry *
+.Fn mtree_entry_copy_all "const struct mtree_entry *start"
+.Ft void
+.Fn mtree_entry_copy_keywords "struct mtree_entry *entry" "const struct mtree_entry *from" "uint64_t keywords" "int overwrite"
+.Ft void
+.Fn mtree_entry_free "struct mtree_entry *entry"
+.Ft void
+.Fn mtree_entry_free_all "struct mtree_entry *start"
+.Sh DESCRIPTION
+The
+.Tn mtree_entry
+structure describes an mtree spec entry, that is a file in an mtree spec along
+with its properties. It corresponds to a single file in a mtree spec file.
+.Pp
+The structure also includes pointer to the previous and next entries, it is a
+doubly-linked list.
+.Pp
+It is seldom needed to create mtree entries directly as
+.Xr mtree_spec 3
+provides higher level functions that create lists of mtree entries by reading spec
+files or directory structures. When greater flexibilty is needed, it is possible
+to create entries and lists of entries using the functions described below.
+.Pp
+As mtree entries describe files along with their properties, every entry always
+contains a file path. Use
+.Fn mtree_entry_get_path
+to get the full file path of an entry. The function
+.Fn mtree_entry_get_name
+returns only the last component of the file path and
+.Fn mtree_entry_get_dirname
+returns the path without the last component.
+.Pp
+The following functions are provided for working with the linked lists of entries:
+.Bl -tag -offset indent
+.It Fn mtree_entry_get_first
+Get the first entry in the list.
+.It Fn mtree_entry_get_last
+Get the last entry in the list.
+.It Fn mtree_entry_get_previous
+Get the previous entry in the list, or
+.Dv NULL
+if there is no previous entry.
+.It Fn mtree_entry_get_next
+Get the next entry in the list, or
+.Dv NULL
+if there is no next entry.
+.It Fn mtree_entry_append
+Append an entry to the end of the list.
+.Pp
+This function uses
+.Fn mtree_entry_get_last
+to find the end of the list and should be therefore used sparsly due to its
+inefficiency. A much more efficient approach to creating a list of entries is to
+repeatedly prepend entries to the head of the list, and reverse the list at
+the end.
+.It Fn mtree_entry_prepend
+Prepend an entry before the head entry of the list. This function only works with
+the head element, to insert an entry before another entry, use
+.Fn mtree_entry_insert_before
+instead.
+.It Fn mtree_entry_insert_before
+Insert the given entry before the specified sibling.
+.It Fn mtree_entry_insert_after
+Insert the given entry after the specified sibling.
+.It Fn mtree_entry_unlink
+Unlink the given entry from the list. This removes the entry from the list and
+makes it a standalone entry.
+.It Fn mtree_entry_reverse
+Reverse the order of entries in the list.
+.It Fn mtree_entry_sort
+Sort the list in path order. In path order, the entries are sorted
+alphabetically, but directories are placed after files in the same directory.
+.Pp
+Sorting is done using the mergesort algorithm and is therefore stable.
+.It Fn mtree_entry_sort_path
+Sort the list using a user-defined sorting function.
+.It Fn mtree_entry_count
+Get the number of elements in the head, if the head of the list is given, or
+the number of entries following and including the given entry.
+.El
+.Pp
+An empty list is represented by the
+.Dv NULL
+value. Therefore every function, which accepts a list, also accepts the
+.Dv NULL
+value.
+.Pp
+Each function, which accepts an argument called
+.Fa head ,
+should only be given the head element of a list. The functions which receive
+an argument called
+.Fa start ,
+can be given any element, and they perform an operation on each following
+element of the list.
+.Pp
+The
+.Fn mtree_entry_merge
+function merges up to two lists. Merging removes any duplicate entries into
+a single entry, with latter keywords overwriting former ones. The
+.Fa head1
+and
+.Fa head2
+should be pointers to the heads of the lists to be merged. It is possible
+to merge a single list by supplying a
+.Dv NULL
+value for the
+.Fa head2
+argument.
+.Pp
+The
+.Fa options argument should be either zero or the value:
+.Pp
+.Bl -tag -offset indent
+.It MTREE_ENTRY_MERGE_DIFFERENT_TYPES
+Merge entries with different types. By default, entries with the same path
+and different types cause the function to return prematurely with an error.
+.Pp
+Note that merging different types doesn't remove any keywords from the
+entries, even if some keywords may not be suitable for the last entry type.
+.El
+.Pp
+The
+.Fa mismerged
+argument should be either
+.Dv NULL ,
+or a pointer to an empty list, that is set to
+.Dv NULL .
+In case a pointer is given, the function will populate the list with two
+entries that failed to be merged because of mismatching types. If the
+.Em MTREE_ENTRY_MERGE_DIFFERENT_TYPES
+options is given, the
+.Fa mismerged
+value will not be used.
+.Pp
+The
+.Fn mtree_entry_merge_fast
+function behaves the same as
+.Fn mtree_entry_merge ,
+with the exception that it assumes the first given list to be already
+merged.
+.Pp
+The
+.Fn mtree_entry_find
+function attempts to find an entry with the specified path, starting at
+the given entry, and looking forward in the list.
+The
+.Fn mtree_entry_find_prefix
+function searches for an entry, where the path starts with the given
+prefix. For both of these functions, the first matching entry is
+returned.
+.Pp
+The
+.Fn mtree_entry_compare
+function compares the given entries and returns non-zero if their paths,
+keyword sets, or any keyword values don't match. The
+.Fa keyword
+argument is a bitwise OR of keyword constants and allows to narrow down
+the comparison to the given set of keywords. The
+.Fn mtree_entry_compare_keywords
+function doesn't compare the paths of the entries, only the keyword sets
+and keyword values. For both of these functions, the
+.Fa diff
+argument, if non-NULL, will be set to the set of keywords that are only
+present in one of the entries, or that have different values in each
+entry.
+.Pp
+Use
+.Fn mtree_entry_create
+to create a new mtree entry. The
+.Fa path
+argument is a file path and it doesn't need to be a valid path to an
+existing file. The paths in mtree entries are always relative to the
+current directory, therefore the function may store a modified path
+that matches this requirement. Even if the path is modified, the
+.Xr mtree_entry_set_keywords 3
+function will still work correctly, as the entry will internally
+remember the original given path.
+.Pp
+Use
+.Fn mtree_entry_copy
+and
+.Fn mtree_entry_copy_all
+to create a copy of a single entry, or a list starting with the given
+entry. A single copy will be created as standalone, with both the
+previous and next pointers set to
+.Dv NULL .
+.Pp
+The
+.Fn mtree_entry_copy_keywords
+function copies keywords along with their values from the
+.Fa from
+entry to
+.Fa entry .
+The
+.Fa keywords
+argument specifies which keywords should be copied and the
+.Fa overwrite
+argument, when set to non-zero, will cause keywords values to be
+overwritten in the target entry. By setting
+.Fa overwrite
+to zero, the keyword values that already exist in the target entry
+will be unchanged.
+.Pp
+The
+.Fn mtree_entry_free
+and
+.Fn mtree_entry_free_all
+functions free the resources allocated to the given entry or a list of
+entries starting with the given entry.
+.Sh RETURN VALUE
+The
+.Fn mtree_entry_get_path ,
+.Fn mtree_entry_get_name
+and
+.Fn mtree_entry_get_dirname
+functions return parts of the file path.
+.Pp
+The
+.Fn mtree_entry_get_first ,
+.Fn mtree_entry_get_last ,
+.Fn mtree_entry_get_previous and
+.Fn mtree_entry_get_next
+functions return pointers to various entries of the list as described
+above, or
+.Dv NULL
+if such entry doesn't exist, or when the functions are used on an
+empty list.
+.Pp
+All the functions that manipulate entry lists return the new head
+of the list.
+.Pp
+The
+.Fn mtree_entry_find
+and
+.Fn mtree_entry_find_prefix
+functions return pointers to the first entry matching the given path
+or prefix, or
+.Dv NULL
+if such entry doesn't exist in the list.
+.Pp
+The
+.Fn mtree_entry_compare
+and
+.Fn mtree_entry_compare_keywords
+functions return 0 when the compared entries match, and non-zero when
+they don't match.
+.Pp
+The
+.Fn mtree_entry_create ,
+.Fn mtree_entry_copy
+and
+.Fn mtree_entry_copy_all
+functions return a pointer to newly allocated entry or list of entries,
+or NULL if memory couldn't be allocated, or if the
+.Fn mtree_entry_copy_all
+function was given an empty list as the argument.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+/* Create a linked list of entries. */
+struct mtree_entry *list = NULL;
+
+/* Add each entry in sequence. */
+list = mtree_entry_prepend(list, entry1);
+list = mtree_entry_prepend(list, entry2);
+list = mtree_entry_prepend(list, entry3);
+
+/* Reverse the list at the end to get the correct order. */
+list = mtree_entry_reverse(list);
+.Ed
+.Sh SEE ALSO
+.Xr mtree 5 ,
+.Xr mtree_entry_get_keywords 3 ,
+.Xr mtree_entry_set_keywords 3 ,
+.Xr mtree_spec 3
+.Sh AUTHORS
+.An -nosplit
+The
+.Nm libmtree
+library was written by
+.An Michal Ratajsky Aq michal@FreeBSD.org .

@@ -24,22 +24,27 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
+#if MAJOR_IN_MKDEV
+#include <sys/mkdev.h>
+#elif MAJOR_IN_SYSMACROS
+#include <sys/sysmacros.h>
+#endif
 
 #include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "compat.h"
+#include "mtree.h"
 #include "mtree_private.h"
-
-#define ERR_STR_SIZE		128
 
 /*
  * Custom error codes
@@ -50,6 +55,11 @@
 #define ERR_PACK_SUBUNIT	(-4)
 #define ERR_PACK_NFIELDS	(-5)
 
+#define MAX_ERRSTR_LEN		128
+
+/*
+ * Create a new mtree_device.
+ */
 struct mtree_device *
 mtree_device_create(void)
 {
@@ -61,8 +71,11 @@ mtree_device_create(void)
 	return (dev);
 }
 
+/*
+ * Copy the given mtree_device.
+ */
 struct mtree_device *
-mtree_device_copy(struct mtree_device *dev)
+mtree_device_copy(const struct mtree_device *dev)
 {
 	struct mtree_device *copy;
 
@@ -74,8 +87,11 @@ mtree_device_copy(struct mtree_device *dev)
 	return (copy);
 }
 
+/*
+ * Copy data from the device `from' into `dev'.
+ */
 void
-mtree_device_copy_data(struct mtree_device *dev, struct mtree_device *from)
+mtree_device_copy_data(struct mtree_device *dev, const struct mtree_device *from)
 {
 
 	assert(dev != NULL);
@@ -90,6 +106,51 @@ mtree_device_copy_data(struct mtree_device *dev, struct mtree_device *from)
 	dev->subunit = from->subunit;
 }
 
+/*
+ * Compare the given devices and return non-zero if they are different.
+ */
+int
+mtree_device_compare(const struct mtree_device *dev1, const struct mtree_device *dev2)
+{
+
+	assert(dev1 != NULL);
+	assert(dev2 != NULL);
+
+	if (dev1->format != dev2->format)
+		return (-1);
+	if (dev1->fields != dev2->fields)
+		return (-1);
+	if ((dev1->fields & MTREE_DEVICE_FIELD_NUMBER &&
+	     dev1->number != dev2->number) ||
+	    (dev1->fields & MTREE_DEVICE_FIELD_MAJOR &&
+	     dev1->major != dev2->major) ||
+	    (dev1->fields & MTREE_DEVICE_FIELD_MINOR &&
+	     dev1->minor != dev2->minor) ||
+	    (dev1->fields & MTREE_DEVICE_FIELD_UNIT &&
+	     dev1->unit != dev2->unit) ||
+	    (dev1->fields & MTREE_DEVICE_FIELD_SUBUNIT &&
+	     dev1->subunit != dev2->subunit))
+		return (-1);
+
+	return (0);
+}
+
+/*
+ * Reset the given mtree_device to its initial state.
+ */
+void
+mtree_device_reset(struct mtree_device *dev)
+{
+
+	assert(dev != NULL);
+
+	dev->format = MTREE_DEVICE_NATIVE;
+	dev->fields = 0;
+}
+
+/*
+ * Free the given mtree_device.
+ */
 void
 mtree_device_free(struct mtree_device *dev)
 {
@@ -99,6 +160,9 @@ mtree_device_free(struct mtree_device *dev)
 	free(dev);
 }
 
+/*
+ * Get the device number format.
+ */
 mtree_device_format
 mtree_device_get_format(struct mtree_device *dev)
 {
@@ -108,6 +172,9 @@ mtree_device_get_format(struct mtree_device *dev)
 	return (dev->format);
 }
 
+/*
+ * Set the device number format.
+ */
 void
 mtree_device_set_format(struct mtree_device *dev, mtree_device_format format)
 {
@@ -117,6 +184,9 @@ mtree_device_set_format(struct mtree_device *dev, mtree_device_format format)
 	dev->format = format;
 }
 
+/*
+ * Get the device number field value.
+ */
 dev_t
 mtree_device_get_value(struct mtree_device *dev, int field)
 {
@@ -140,6 +210,9 @@ mtree_device_get_value(struct mtree_device *dev, int field)
 	return (0);
 }
 
+/*
+ * Set the device number field value.
+ */
 void
 mtree_device_set_value(struct mtree_device *dev, int field, dev_t value)
 {
@@ -168,6 +241,9 @@ mtree_device_set_value(struct mtree_device *dev, int field, dev_t value)
 	dev->fields |= field;
 }
 
+/*
+ * Get the device number fields.
+ */
 int
 mtree_device_get_fields(struct mtree_device *dev)
 {
@@ -177,15 +253,6 @@ mtree_device_get_fields(struct mtree_device *dev)
 	return (dev->fields);
 }
 
-void
-mtree_device_unset_fields(struct mtree_device *dev, int fields)
-{
-
-	assert(dev != NULL);
-
-	dev->fields &= ~fields;
-}
-
 /*
  * Set errno and error message for errors that occured in mtree_device_parse()
  * and mtree_device_string().
@@ -193,74 +260,61 @@ mtree_device_unset_fields(struct mtree_device *dev, int fields)
 static void
 set_error(struct mtree_device *dev, int err, const char *format, ...)
 {
-	va_list args;
+	char	errstr[MAX_ERRSTR_LEN];
+	va_list	args;
 
-	errno = err;
+	errno = dev->err = err;
 	if (format == NULL) {
 		free(dev->errstr);
 		dev->errstr = NULL;
 		return;
 	}
-	if (dev->errstr == NULL) {
-		dev->errstr = malloc(ERR_STR_SIZE);
-		if (dev->errstr == NULL)
-			return;
-	}
 	va_start(args, format);
-	vsnprintf(dev->errstr, ERR_STR_SIZE, format, args);
+	vsnprintf(errstr, MAX_ERRSTR_LEN, format, args);
 	va_end(args);
+
+	mtree_copy_string(&dev->errstr, errstr);
 }
 
 /*
- * The packing code is largely based on NetBSD's mknod/pack_dev.c
- */
-
-/* Copyright (c) 1998, 2001 The NetBSD Foundation, Inc.
- * All rights reserved.
- *
- * This code is derived from software contributed to The NetBSD Foundation
- * by Charles M. Hannum.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
- * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
- * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
- * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * Device number packing functions.
  */
 static int
 pack_native(long numbers[], int n, struct mtree_device *dev)
 {
-	dev_t num, major, minor;
+	dev_t major, minor;
 
 	if (n == 2) {
+#ifdef HAVE_MAKEDEV
+		dev_t num;
 		num = makedev(numbers[0], numbers[1]);
+#endif
+#if defined(HAVE_MAKEDEV) && defined(HAVE_MAJOR)
 		major = major(num);
-		minor = minor(num);
 		if (major != (dev_t) numbers[0])
 			return (ERR_PACK_MAJOR);
+#else
+		major = (dev_t)numbers[0];
+#endif
+#if defined(HAVE_MAKEDEV) && defined(HAVE_MINOR)
+		minor = minor(num);
 		if (minor != (dev_t) numbers[1])
 			return (ERR_PACK_MINOR);
-		dev->number = num;
+#else
+		minor = (dev_t)numbers[1];
+#endif
 		dev->major  = major;
 		dev->minor  = minor;
+#ifdef HAVE_MAKEDEV
+		dev->number = num;
 		dev->fields = MTREE_DEVICE_FIELD_NUMBER |
 		    MTREE_DEVICE_FIELD_MAJOR |
 		    MTREE_DEVICE_FIELD_MINOR;
+#else
+		dev->fields =
+		    MTREE_DEVICE_FIELD_MAJOR |
+		    MTREE_DEVICE_FIELD_MINOR;
+#endif
 		return (0);
 	}
 	return (ERR_PACK_NFIELDS);
@@ -282,9 +336,9 @@ pack_netbsd(long numbers[], int n, struct mtree_device *dev)
 		num = makedev_netbsd(numbers[0], numbers[1]);
 		major = major_netbsd(num);
 		minor = minor_netbsd(num);
-		if (major != (dev_t) numbers[0])
+		if (major != (dev_t)numbers[0])
 			return (ERR_PACK_MAJOR);
-		if (minor != (dev_t) numbers[1])
+		if (minor != (dev_t)numbers[1])
 			return (ERR_PACK_MINOR);
 		dev->number = num;
 		dev->major  = major;
@@ -311,9 +365,9 @@ pack_freebsd(long numbers[], int n, struct mtree_device *dev)
 		num = makedev_freebsd(numbers[0], numbers[1]);
 		major = major_freebsd(num);
 		minor = minor_freebsd(num);
-		if (major != (dev_t) numbers[0])
+		if (major != (dev_t)numbers[0])
 			return (ERR_PACK_MAJOR);
-		if (minor != (dev_t) numbers[1])
+		if (minor != (dev_t)numbers[1])
 			return (ERR_PACK_MINOR);
 		dev->number = num;
 		dev->major  = major;
@@ -340,9 +394,9 @@ pack_8_8(long numbers[], int n, struct mtree_device *dev)
 		num = makedev_8_8(numbers[0], numbers[1]);
 		major = major_8_8(num);
 		minor = minor_8_8(num);
-		if (major != (dev_t) numbers[0])
+		if (major != (dev_t)numbers[0])
 			return (ERR_PACK_MAJOR);
-		if (minor != (dev_t) numbers[1])
+		if (minor != (dev_t)numbers[1])
 			return (ERR_PACK_MINOR);
 		dev->number = num;
 		dev->major  = major;
@@ -369,9 +423,9 @@ pack_12_20(long numbers[], int n, struct mtree_device *dev)
 		num = makedev_12_20(numbers[0], numbers[1]);
 		major = major_12_20(num);
 		minor = minor_12_20(num);
-		if (major != (dev_t) numbers[0])
+		if (major != (dev_t)numbers[0])
 			return (ERR_PACK_MAJOR);
-		if (minor != (dev_t) numbers[1])
+		if (minor != (dev_t)numbers[1])
 			return (ERR_PACK_MINOR);
 		dev->number = num;
 		dev->major  = major;
@@ -398,9 +452,9 @@ pack_14_18(long numbers[], int n, struct mtree_device *dev)
 		num = makedev_14_18(numbers[0], numbers[1]);
 		major = major_14_18(num);
 		minor = minor_14_18(num);
-		if (major != (dev_t) numbers[0])
+		if (major != (dev_t)numbers[0])
 			return (ERR_PACK_MAJOR);
-		if (minor != (dev_t) numbers[1])
+		if (minor != (dev_t)numbers[1])
 			return (ERR_PACK_MINOR);
 		dev->number = num;
 		dev->major  = major;
@@ -427,9 +481,9 @@ pack_8_24(long numbers[], int n, struct mtree_device *dev)
 		num = makedev_8_24(numbers[0], numbers[1]);
 		major = major_8_24(num);
 		minor = minor_8_24(num);
-		if (major != (dev_t) numbers[0])
+		if (major != (dev_t)numbers[0])
 			return (ERR_PACK_MAJOR);
-		if (minor != (dev_t) numbers[1])
+		if (minor != (dev_t)numbers[1])
 			return (ERR_PACK_MINOR);
 		dev->number = num;
 		dev->major  = major;
@@ -458,9 +512,9 @@ pack_bsdos(long numbers[], int n, struct mtree_device *dev)
 		num = makedev_12_20(numbers[0], numbers[1]);
 		major = major_12_20(num);
 		minor = minor_12_20(num);
-		if (major != (dev_t) numbers[0])
+		if (major != (dev_t)numbers[0])
 			return (ERR_PACK_MAJOR);
-		if (minor != (dev_t) numbers[1])
+		if (minor != (dev_t)numbers[1])
 			return (ERR_PACK_MINOR);
 		dev->number = num;
 		dev->major  = major;
@@ -475,11 +529,11 @@ pack_bsdos(long numbers[], int n, struct mtree_device *dev)
 		major   = major_12_12_8(num);
 		unit    = unit_12_12_8(num);
 		subunit = subunit_12_12_8(num);
-		if (major != (dev_t) numbers[0])
+		if (major != (dev_t)numbers[0])
 			return (ERR_PACK_MAJOR);
-		if (unit != (dev_t) numbers[1])
+		if (unit != (dev_t)numbers[1])
 			return (ERR_PACK_UNIT);
-		if (subunit != (dev_t) numbers[2])
+		if (subunit != (dev_t)numbers[2])
 			return (ERR_PACK_SUBUNIT);
 		dev->number  = num;
 		dev->major   = major;
@@ -494,7 +548,7 @@ pack_bsdos(long numbers[], int n, struct mtree_device *dev)
 	return (ERR_PACK_NFIELDS);
 }
 
-typedef	int pack_t(long [], int, struct mtree_device *);
+typedef	int (*pack_t)(long [], int, struct mtree_device *);
 /*
  * List of formats and pack functions.
  * The list must be lexically sorted and array indices match format constants.
@@ -502,7 +556,7 @@ typedef	int pack_t(long [], int, struct mtree_device *);
 static const struct format {
 	const char		*name;
 	mtree_device_format	 format;
-	pack_t			*pack;
+	pack_t			 pack;
 } formats[] = {
 	{"386bsd",	MTREE_DEVICE_386BSD,	pack_8_8},
 	{"4bsd",	MTREE_DEVICE_4BSD,	pack_8_8},
@@ -530,16 +584,17 @@ compare_format(const void *key, const void *format)
 }
 
 /*
- * Convert mtree_device to a string that can be used with the "device" keyword.
+ * Convert mtree_device to a string that can be used with the "device" and
+ * "resdevice" keywords.
  */
-int
-mtree_device_string(struct mtree_device *dev, char **s)
+char *
+mtree_device_string(struct mtree_device *dev)
 {
 	const struct format	*format;
 	char			 buf[64];
+	char			*s;
 
 	assert(dev != NULL);
-	assert(s != NULL);
 
 	/*
 	 * Supported field combinations are:
@@ -547,40 +602,39 @@ mtree_device_string(struct mtree_device *dev, char **s)
 	 *   major + minor (all formats)
 	 *   major + unit + subunit (only bsdos format)
 	 */
-	if (dev->format == MTREE_DEVICE_NATIVE &&
-	    (dev->fields & MTREE_DEVICE_FIELD_NUMBER)) {
-		snprintf(buf, sizeof(buf), "%ju", (uintmax_t) dev->number);
-	} else if ((dev->fields & MTREE_DEVICE_FIELD_MAJOR) &&
+	if ((dev->fields & MTREE_DEVICE_FIELD_MAJOR) &&
 	    (dev->fields & MTREE_DEVICE_FIELD_MINOR)) {
 		format = &formats[dev->format];
 		snprintf(buf, sizeof(buf), "%s,%ju,%ju",
 		    format->name,
-		    (uintmax_t) dev->major,
-		    (uintmax_t) dev->minor);
+		    (uintmax_t)dev->major,
+		    (uintmax_t)dev->minor);
 	} else if ((dev->fields & MTREE_DEVICE_FIELD_MAJOR) &&
-	    (dev->fields & MTREE_DEVICE_FIELD_UNIT) &&
-	    (dev->fields & MTREE_DEVICE_FIELD_SUBUNIT)) {
+		   (dev->fields & MTREE_DEVICE_FIELD_UNIT) &&
+		   (dev->fields & MTREE_DEVICE_FIELD_SUBUNIT)) {
 		if (dev->format != MTREE_DEVICE_BSDOS) {
 			set_error(dev, EINVAL,
-			    "Unit and subunit fields are only supported with the bsdos format");
-			return (-1);
+			    "Unit and subunit fields are only supported in the bsdos format");
+			return (NULL);
 		}
 		format = &formats[dev->format];
 		snprintf(buf, sizeof(buf), "%s,%ju,%ju,%ju",
 		    format->name,
-		    (uintmax_t) dev->major,
-		    (uintmax_t) dev->unit,
-		    (uintmax_t) dev->subunit);
+		    (uintmax_t)dev->major,
+		    (uintmax_t)dev->unit,
+		    (uintmax_t)dev->subunit);
+	} else if (dev->format == MTREE_DEVICE_NATIVE &&
+		   (dev->fields & MTREE_DEVICE_FIELD_NUMBER)) {
+		snprintf(buf, sizeof(buf), "%ju", (uintmax_t) dev->number);
 	} else {
 		set_error(dev, EINVAL, "Required field(s) missing");
-		return (-1);
+		return (NULL);
 	}
-	*s = strdup(buf);
-	if (*s == NULL) {
+	s = strdup(buf);
+	if (s == NULL)
 		set_error(dev, errno, NULL);
-		return (-1);
-	}
-	return (0);
+
+	return (s);
 }
 
 /*
@@ -594,8 +648,8 @@ int
 mtree_device_parse(struct mtree_device *dev, const char *s)
 {
 	struct format	*format;
+	const char	*endptr;
 	char		*name;
-	char		*endptr;
 	char		*sep;
 	long		 numbers[3];
 	dev_t		 number;
@@ -606,7 +660,7 @@ mtree_device_parse(struct mtree_device *dev, const char *s)
 
 	/* Prevent empty string from being converted to 0. */
 	if (*s == '\0') {
-		set_error(dev, EINVAL, "Empty string not allowed");
+		set_error(dev, EINVAL, "Empty device string not allowed");
 		return (-1);
 	}
 	sep = strchr(s, ',');
@@ -624,7 +678,8 @@ mtree_device_parse(struct mtree_device *dev, const char *s)
 		    __arraycount(formats),
 		    sizeof(formats[0]), compare_format);
 		if (format == NULL) {
-			set_error(dev, EINVAL, "Unsupported format '%s'", name);
+			set_error(dev, EINVAL, "Unsupported device format `%s'",
+			    name);
 			free(name);
 			return (-1);
 		}
@@ -639,42 +694,40 @@ mtree_device_parse(struct mtree_device *dev, const char *s)
 				s++;
 			if (*s == '\0')
 				break;
-			errno = 0;
-			numbers[n] = strtol(s, &endptr, 10);
-			if (errno == 0) {
-				if (*endptr == ',' || *endptr == '\0') {
-					s = endptr;
-					continue;
-				}
-				set_error(dev, EINVAL,
-				    "Format may only be followed by numbers");
-			} else
-				set_error(dev, errno, NULL);
+			numbers[n] = (long)mtree_atol(s, &endptr);
+			if (*endptr == '\0')
+				break;
+			if (*endptr == ',') {
+				s = endptr;
+				continue;
+			}
+			set_error(dev, EINVAL,
+			    "Device format must be followed by numbers");
 			return (-1);
 		}
 		if (n < 2) {
 			set_error(dev, EINVAL,
-			    "Format must be followed by at least 2 numbers");
+			    "Device format must be followed by at least 2 numbers");
 			return (-1);
 		}
 		n = format->pack(numbers, n, dev);
 		if (n != 0) {
 			switch (n) {
 			case ERR_PACK_MAJOR:
-				set_error(dev, EINVAL, "Invalid major number");
+				set_error(dev, EINVAL, "Invalid device major number");
 				break;
 			case ERR_PACK_MINOR:
-				set_error(dev, EINVAL, "Invalid minor number");
+				set_error(dev, EINVAL, "Invalid device minor number");
 				break;
 			case ERR_PACK_UNIT:
-				set_error(dev, EINVAL, "Invalid unit number");
+				set_error(dev, EINVAL, "Invalid device unit number");
 				break;
 			case ERR_PACK_SUBUNIT:
-				set_error(dev, EINVAL, "Invalid subunit number");
+				set_error(dev, EINVAL, "Invalid device subunit number");
 				break;
 			case ERR_PACK_NFIELDS:
-				set_error(dev, EINVAL,
-				    "Too many fields for format '%s'", format->name);
+				set_error(dev, EINVAL, "Too many fields for device "
+				    "format `%s'", format->name);
 				break;
 			default:
 				set_error(dev, EINVAL, NULL);
@@ -687,17 +740,12 @@ mtree_device_parse(struct mtree_device *dev, const char *s)
 		/*
 		 * No comma, use the value as device number.
 		 */
-		errno = 0;
-		number = strtol(s, &endptr, 10);
-		/*
-		 * Don't accept the input if it includes some non-numeric part.
-		 */
-		if (errno != 0 || *endptr != '\0') {
-			if (errno == 0)
-				set_error(dev, EINVAL,
-				    "Format may only be followed by numbers");
-			else
-				set_error(dev, errno, NULL);
+		number = mtree_atol(s, &endptr);
+
+		/* Don't accept the input if it includes some non-numeric part. */
+		if (*endptr != '\0') {
+			set_error(dev, EINVAL,
+			    "Device format must be followed by numbers");
 			return (-1);
 		}
 		dev->format = MTREE_DEVICE_NATIVE;
@@ -707,11 +755,19 @@ mtree_device_parse(struct mtree_device *dev, const char *s)
 	return (0);
 }
 
+/*
+ * Get the last error message from mtree_device_parse() or mtree_device_string().
+ */
 const char *
-mtree_device_error(struct mtree_device *dev)
+mtree_device_get_error(struct mtree_device *dev)
 {
+	char errstr[MAX_ERRSTR_LEN];
 
 	assert(dev != NULL);
 
-	return (dev->errstr != NULL ? dev->errstr : strerror(errno));
+	if (dev->errstr == NULL) {
+		strerror_r(dev->err, errstr, sizeof(errstr));
+		dev->errstr = strdup(errstr);
+	}
+	return (dev->errstr);
 }

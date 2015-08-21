@@ -24,12 +24,8 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/types.h>
-
 #include <assert.h>
 #include <errno.h>
-#include <fts.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,247 +35,150 @@
 #include "mtree_file.h"
 #include "mtree_private.h"
 
-#ifdef __FreeBSD__
-# define FTS_CONST const
-#else
-# define FTS_CONST
-#endif
-
+/*
+ * Create a new mtree_spec.
+ */
 struct mtree_spec *
 mtree_spec_create(void)
 {
 	struct mtree_spec *spec;
 
 	spec = calloc(1, sizeof(struct mtree_spec));
-
+	if (spec == NULL)
+		return (NULL);
 	spec->reader = mtree_reader_create();
+	if (spec->reader == NULL) {
+		free(spec);
+		return (NULL);
+	}
 	spec->writer = mtree_writer_create();
-
-	mtree_spec_set_read_keywords(spec, MTREE_KEYWORD_MASK_DEFAULT);
+	if (spec->writer == NULL) {
+		mtree_reader_free(spec->reader);
+		free(spec);
+		return (NULL);
+	}
+	/*
+	 * Default sets of keywords to read/write.
+	 *
+	 * Path reading uses to `default' set, which tries to read the most
+	 * usable values without doing any expensive calculations.
+	 * Spec reading reads everything included in the spec by default.
+	 */
+	mtree_spec_set_read_path_keywords(spec, MTREE_KEYWORD_MASK_DEFAULT);
+	mtree_spec_set_read_spec_keywords(spec, MTREE_KEYWORD_MASK_ALL);
+	mtree_spec_set_read_options(spec, MTREE_READ_MERGE);
 	return (spec);
 }
 
+/*
+ * Free the given mtree_spec.
+ */
 void
 mtree_spec_free(struct mtree_spec * spec)
 {
 
 	assert(spec != NULL);
 
+	if (spec->entries != NULL)
+		mtree_entry_free_all(spec->entries);
+
 	mtree_reader_free(spec->reader);
 	mtree_writer_free(spec->writer);
+
 	free(spec);
 }
 
-void
-mtree_spec_reset(struct mtree_spec *spec)
-{
-
-	assert(spec != NULL);
-
-	mtree_entry_free_all(spec->entries);
-	spec->entries = NULL;
-
-	mtree_reader_reset(spec->reader);
-}
-
+/*
+ * Read spec data from the given FILE.
+ */
 int
-mtree_spec_read_file(struct mtree_spec *spec, FILE *fp)
+mtree_spec_read_spec_file(struct mtree_spec *spec, FILE *fp)
 {
-	struct mtree_entry *entries;
-	char buf[512];
-	int ret;
 
 	assert(spec != NULL);
 	assert(fp != NULL);
 
-	ret = 0;
-	while (fgets(buf, sizeof(buf), fp) != NULL) {
-		ret = mtree_reader_add(spec->reader, buf, -1);
-		if (ret == -1)
-			break;
+	if (spec->reading) {
+		mtree_reader_set_error(spec->reader, EPERM,
+		    "Reading not finalized, call mtree_spec_read_spec_data_finish()");
+		return (-1);
 	}
+	if (mtree_reader_add_from_file(spec->reader, fp) == -1)
+		return (-1);
 
-	if (ret == 0) {
-		ret = mtree_reader_finish(spec->reader, &entries);
-		if (ret == 0 && entries != NULL)
-			spec->entries = mtree_entry_append(spec->entries, entries);
-	}
-	return (ret);
+	return (mtree_reader_finish(spec->reader, &spec->entries));
 }
 
+/*
+ * Read spec data from the given file descriptor.
+ */
 int
-mtree_spec_read_fd(struct mtree_spec * spec, int fd)
+mtree_spec_read_spec_fd(struct mtree_spec *spec, int fd)
 {
-	struct mtree_entry *entries;
-	char buf[512];
-	ssize_t n;
-	int ret;
 
 	assert(spec != NULL);
 	assert(fd != -1);
 
-	ret = 0;
-	for (;;) {
-		n = read(fd, buf, sizeof(buf) - 1);
-		if (n > 0) {
-			buf[n] = '\0';
-			ret = mtree_reader_add(spec->reader, buf, n);
-		} else if (n < 0) {
-			ret = -1;
-		} else { /* n == 0 */
-			ret = mtree_reader_finish(spec->reader, &entries);
-			if (ret == 0 && entries != NULL)
-				spec->entries = mtree_entry_append(spec->entries,
-				    entries);
-			break;
-		}
-		if (ret == -1)
-			break;
+	if (spec->reading) {
+		mtree_reader_set_error(spec->reader, EPERM,
+		    "Reading not finalized, call mtree_spec_read_spec_data_finish()");
+		return (-1);
 	}
-	return (ret);
+	if (mtree_reader_add_from_fd(spec->reader, fd) == -1)
+		return (-1);
+
+	return (mtree_reader_finish(spec->reader, &spec->entries));
 }
 
+/*
+ * Read spec data from the given buffer.
+ */
 int
-mtree_spec_read_data(struct mtree_spec * spec, const char *data, int len)
+mtree_spec_read_spec_data(struct mtree_spec *spec, const char *data, size_t len)
 {
 
 	assert(spec != NULL);
+
+	if (len == 0)
+		return (0);
+
 	assert(data != NULL);
 
-	// XXX probably mark that we are reading until _end is called
+	spec->reading = 1;
 	return (mtree_reader_add(spec->reader, data, len));
 }
 
+/*
+ * Finish reading spec data when reading from buffers.
+ *
+ * This may parse remaining data that's stored in the reader's buffer.
+ */
 int
-mtree_spec_read_data_end(struct mtree_spec *spec)
+mtree_spec_read_spec_data_finish(struct mtree_spec *spec)
 {
-	struct mtree_entry *entries;
 	int ret;
 
 	assert(spec != NULL);
 
-	ret = mtree_reader_finish(spec->reader, &entries);
-	if (ret == 0 && entries != NULL)
-		spec->entries = mtree_entry_append(spec->entries, entries);
+	ret = mtree_reader_finish(spec->reader, &spec->entries);
 
+	spec->reading = 0;
 	return (ret);
-}
-
-static int
-ftsentcmp(const FTSENT * FTS_CONST *a, const FTSENT * FTS_CONST *b)
-{
-
-	if (S_ISDIR((*a)->fts_statp->st_mode)) {
-		if (!S_ISDIR((*b)->fts_statp->st_mode))
-			return (1);
-	} else if (S_ISDIR((*b)->fts_statp->st_mode))
-		return (-1);
-
-	return (strcmp((*a)->fts_name, (*b)->fts_name));
 }
 
 int
 mtree_spec_read_path(struct mtree_spec *spec, const char *path)
 {
-	FTS *fts;
-	FTSENT *ftsent;
-	struct mtree_entry *first, *entry;
-	struct mtree_entry *parent;
-	struct stat st;
-	char *argv[2];
-	int ftsoptions;
-	int ret;
 
-	assert (spec != NULL);
-	assert (path != NULL);
+	assert(spec != NULL);
+	assert(path != NULL);
 
-	/* Make sure the supplied path is a directory */
-	if (stat(path, &st) == -1)
-		return (-1);
-	if (!S_ISDIR(st.st_mode)) {
-		errno = ENOTDIR;
-		return (-1);
-	}
-
-	ftsoptions = FTS_NOCHDIR;
-	if (spec->read_options & MTREE_READ_PATH_FOLLOW_SYMLINKS)
-		ftsoptions |= FTS_LOGICAL;
-	else
-		ftsoptions |= FTS_PHYSICAL;
-	if (spec->read_options & MTREE_READ_PATH_DONT_CROSS_DEV)
-		ftsoptions |= FTS_XDEV;
-
-	argv[1] = NULL;
-	if (spec->read_options & MTREE_READ_PATH_ABSOLUTE)
-		argv[0] = (char *) path;
-	else {
-		if (chdir(path) == -1)
-			return (-1);
-		argv[0] = ".";
-	}
-	fts = fts_open(argv, ftsoptions, ftsentcmp);
-	if (fts == NULL)
-		return (-1);
-
-	first  = NULL;
-	parent = NULL;
-	ret    = 0;
-	while (ret == 0) {
-		ftsent = fts_read(fts);
-		if (ftsent == NULL)
-			break;
-
-		switch (ftsent->fts_info) {
-		case FTS_DNR:
-		case FTS_ERR:
-		case FTS_NS:
-			/* Error */
-			if ((spec->read_options & MTREE_READ_SKIP_ON_ERROR) == 0) {
-				errno = ftsent->fts_errno;
-				ret = -1;
-			}
-			break;
-		case FTS_DP:
-			/* Leaving a directory */
-			if (parent != NULL)
-				parent = parent->parent;
-			break;
-		case FTS_DOT:
-			break;
-		default:
-			entry = mtree_entry_create_from_ftsent(ftsent,
-			    spec->read_keywords);
-			if (entry == NULL) {
-				ret = -1;
-				break;
-			}
-			entry->parent = parent;
-
-			if (ftsent->fts_info == FTS_D) {
-				if (spec->read_options & MTREE_READ_PATH_DONT_RECURSE &&
-				    ftsent->fts_level > 0)
-					fts_set(fts, ftsent, FTS_SKIP);
-				parent = entry;
-			}
-			first = mtree_entry_prepend(first, entry);
-			break;
-		}
-	}
-
-	if (ret == 0) {
-		if (first != NULL)
-			spec->entries = mtree_entry_append(spec->entries,
-			    mtree_entry_reverse(first));
-	} else {
-		int err;
-
-		err = errno;
-		fts_close(fts);
-		errno = err;
-	}
-	return (ret);
+	return (mtree_reader_read_path(spec->reader, path, &spec->entries));
 }
 
+/*
+ * Write the spec to the given FILE.
+ */
 int
 mtree_spec_write_file(struct mtree_spec *spec, FILE *fp)
 {
@@ -287,9 +186,14 @@ mtree_spec_write_file(struct mtree_spec *spec, FILE *fp)
 	assert(spec != NULL);
 	assert(fp != NULL);
 
-	return (mtree_writer_write_file(spec->writer, spec->entries, fp));
+	mtree_writer_set_output_file(spec->writer, fp);
+
+	return (mtree_writer_write_entries(spec->writer, spec->entries));
 }
 
+/*
+ * Write the spec to the given file descriptor.
+ */
 int
 mtree_spec_write_fd(struct mtree_spec *spec, int fd)
 {
@@ -297,9 +201,30 @@ mtree_spec_write_fd(struct mtree_spec *spec, int fd)
 	assert(spec != NULL);
 	assert(fd != -1);
 
-	return (mtree_writer_write_fd(spec->writer, spec->entries, fd));
+	mtree_writer_set_output_fd(spec->writer, fd);
+
+	return (mtree_writer_write_entries(spec->writer, spec->entries));
 }
 
+/*
+ * Write spec to the given user-defined writer.
+ */
+int
+mtree_spec_write_writer(struct mtree_spec *spec, mtree_writer_fn f,
+    void *user_data)
+{
+
+	assert(spec != NULL);
+	assert(f != NULL);
+
+	mtree_writer_set_output_writer(spec->writer, f, user_data);
+
+	return (mtree_writer_write_entries(spec->writer, spec->entries));
+}
+
+/*
+ * Get entries of the spec.
+ */
 struct mtree_entry *
 mtree_spec_get_entries(struct mtree_spec *spec)
 {
@@ -309,26 +234,170 @@ mtree_spec_get_entries(struct mtree_spec *spec)
 	return (spec->entries);
 }
 
+/*
+ * Get entries of the spec and remove them from the spec.
+ */
+struct mtree_entry *
+mtree_spec_take_entries(struct mtree_spec *spec)
+{
+	struct mtree_entry *entries;
+
+	assert(spec != NULL);
+
+	entries = spec->entries;
+	spec->entries = NULL;
+
+	return (entries);
+}
+
+/*
+ * Assign entries to the spec. The spec claims ownership.
+ */
+void
+mtree_spec_set_entries(struct mtree_spec *spec, struct mtree_entry *entries)
+{
+
+	assert(spec != NULL);
+
+	if (spec->entries != NULL)
+		mtree_entry_free_all(spec->entries);
+
+	spec->entries = entries;
+}
+
+/*
+ * Assign entries to the spec, copying them first.
+ */
+int
+mtree_spec_copy_entries(struct mtree_spec *spec, const struct mtree_entry *entries)
+{
+	struct mtree_entry *copy;
+
+	assert(spec != NULL);
+
+	if (entries != NULL) {
+		copy = mtree_entry_copy_all(entries);
+		if (copy == NULL)
+			return (-1);
+	} else
+		copy = NULL;
+
+	mtree_spec_set_entries(spec, copy);
+	return (0);
+}
+
+/*
+ * Get the last error that occured in the reader.
+ */
+const char *
+mtree_spec_get_read_error(struct mtree_spec *spec)
+{
+
+	assert(spec != NULL);
+
+	return (mtree_reader_get_error(spec->reader));
+}
+
+/*
+ * Get reading options.
+ */
+int
+mtree_spec_get_read_options(struct mtree_spec *spec)
+{
+
+	assert(spec != NULL);
+
+	return (mtree_reader_get_options(spec->reader));
+}
+
+/*
+ * Set reading options.
+ */
 void
 mtree_spec_set_read_options(struct mtree_spec *spec, int options)
 {
 
 	assert(spec != NULL);
 
-	spec->read_options = options;
 	mtree_reader_set_options(spec->reader, options);
 }
 
+/*
+ * Set reading filter.
+ */
 void
-mtree_spec_set_read_keywords(struct mtree_spec *spec, long keywords)
+mtree_spec_set_read_filter(struct mtree_spec *spec, mtree_entry_filter_fn f,
+    void *user_data)
 {
 
 	assert(spec != NULL);
 
-	spec->read_keywords = keywords;
-	mtree_reader_set_keywords(spec->reader, keywords);
+	mtree_reader_set_filter(spec->reader, f, user_data);
 }
 
+/*
+ * Get keywords to be read from path.
+ */
+uint64_t
+mtree_spec_get_read_path_keywords(struct mtree_spec *spec)
+{
+
+	assert(spec != NULL);
+
+	return (mtree_reader_get_path_keywords(spec->reader));
+}
+
+/*
+ * Set keywords to be read from path.
+ */
+void
+mtree_spec_set_read_path_keywords(struct mtree_spec *spec, uint64_t keywords)
+{
+
+	assert(spec != NULL);
+
+	mtree_reader_set_path_keywords(spec->reader, keywords);
+}
+
+/*
+ * Get keywords to be read from spec files.
+ */
+uint64_t
+mtree_spec_get_read_spec_keywords(struct mtree_spec *spec)
+{
+
+	assert(spec != NULL);
+
+	return (mtree_reader_get_spec_keywords(spec->reader));
+}
+
+/*
+ * Set keywords to be read from spec files.
+ */
+void
+mtree_spec_set_read_spec_keywords(struct mtree_spec *spec, uint64_t keywords)
+{
+
+	assert(spec != NULL);
+
+	mtree_reader_set_spec_keywords(spec->reader, keywords);
+}
+
+/*
+ * Get writing format.
+ */
+mtree_format
+mtree_spec_get_write_format(struct mtree_spec *spec)
+{
+
+	assert(spec != NULL);
+
+	return (mtree_writer_get_format(spec->writer));
+}
+
+/*
+ * Set writing format.
+ */
 void
 mtree_spec_set_write_format(struct mtree_spec *spec, mtree_format format)
 {
@@ -338,6 +407,21 @@ mtree_spec_set_write_format(struct mtree_spec *spec, mtree_format format)
 	mtree_writer_set_format(spec->writer, format);
 }
 
+/*
+ * Get writing options.
+ */
+int
+mtree_spec_get_write_options(struct mtree_spec *spec)
+{
+
+	assert(spec != NULL);
+
+	return (mtree_writer_get_options(spec->writer));
+}
+
+/*
+ * Set writing options.
+ */
 void
 mtree_spec_set_write_options(struct mtree_spec *spec, int options)
 {

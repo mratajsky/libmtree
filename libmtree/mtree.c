@@ -24,6 +24,9 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -78,15 +81,16 @@ const struct mtree_keyword_map mtree_keywords[] = {
 static const struct entry_type_map {
 	const char 	*name;
 	mtree_entry_type type;
+	int		 mode;
 } entry_types[] = {
-	{ "block",		MTREE_ENTRY_BLOCK },
-	{ "char",		MTREE_ENTRY_CHAR },
-	{ "dir",		MTREE_ENTRY_DIR },
-	{ "fifo",		MTREE_ENTRY_FIFO },
-	{ "file",		MTREE_ENTRY_FILE },
-	{ "link",		MTREE_ENTRY_LINK },
-	{ "socket",		MTREE_ENTRY_SOCKET },
-	{ "unknown",		MTREE_ENTRY_UNKNOWN }
+	{ "block",		MTREE_ENTRY_BLOCK,	S_IFBLK },
+	{ "char",		MTREE_ENTRY_CHAR,	S_IFCHR },
+	{ "dir",		MTREE_ENTRY_DIR,	S_IFDIR },
+	{ "fifo",		MTREE_ENTRY_FIFO,	S_IFIFO },
+	{ "file",		MTREE_ENTRY_FILE,	S_IFREG },
+	{ "link",		MTREE_ENTRY_LINK,	S_IFLNK },
+	{ "socket",		MTREE_ENTRY_SOCKET,	S_IFSOCK },
+	{ "unknown",		MTREE_ENTRY_UNKNOWN,	0 }
 };
 #define N_ENTRY_TYPES		(__arraycount(entry_types))
 
@@ -112,6 +116,21 @@ mtree_entry_type_parse(const char *name)
 	    sizeof(entry_types[0]), compare_entry_name);
 	if (item != NULL)
 		return (item->type);
+	return (MTREE_ENTRY_UNKNOWN);
+}
+
+/*
+ * Convert mode to an mtree_entry_type.
+ */
+mtree_entry_type
+mtree_entry_type_from_mode(int mode)
+{
+	size_t i;
+
+	mode &= S_IFMT;
+	for (i = 0; i < N_ENTRY_TYPES; i++)
+		if (entry_types[i].mode == mode)
+			return (entry_types[i].type);
 	return (MTREE_ENTRY_UNKNOWN);
 }
 
@@ -148,7 +167,7 @@ compare_keyword_name(const void *key, const void *map)
 /*
  * Convert keyword string to the appropriate numeric constant.
  */
-long
+uint64_t
 mtree_keyword_parse(const char *keyword)
 {
 	struct mtree_keyword_map *item;
@@ -167,14 +186,14 @@ static int
 compare_keyword(const void *key, const void *map)
 {
 
-	return (*((long *)key) - ((struct mtree_keyword_map *)map)->keyword);
+	return (*((uint64_t *)key) - ((struct mtree_keyword_map *)map)->keyword);
 }
 
 /*
  * Convert keyword to a string.
  */
 const char *
-mtree_keyword_string(long keyword)
+mtree_keyword_string(uint64_t keyword)
 {
 	struct mtree_keyword_map *item;
 

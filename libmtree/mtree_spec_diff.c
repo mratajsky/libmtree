@@ -41,72 +41,57 @@
  */
 struct mtree_spec_diff *
 mtree_spec_diff_create(struct mtree_spec *spec1, struct mtree_spec *spec2,
-    long keywords, int options)
+    uint64_t keywords, int options)
 {
 	struct mtree_spec_diff	*sd;
-	struct mtree_entry	*s1only;
-	struct mtree_entry	*s2only;
-	struct mtree_entry	*match;
-	struct mtree_entry	*diff;
 	struct mtree_entry	*e1, *e2;
 	struct mtree_entry	*prev;
 	struct mtree_trie	*s2trie;
-	long			 differ;
+	uint64_t		 kdiff;
+	uint64_t		 kcmp;
 
 	assert(spec1 != NULL);
 	assert(spec2 != NULL);
 
-	sd = malloc(sizeof(struct mtree_spec_diff));
+	sd = calloc(1, sizeof(struct mtree_spec_diff));
 	if (sd == NULL)
 		return (NULL);
-
-	match = NULL;
-	diff  = NULL;
-	if (spec1->entries != NULL) {
-		s1only = mtree_entry_copy_all(spec1->entries);
-		if (s1only == NULL) {
-			free(sd);
-			return (NULL);
-		}
-	} else
-		s1only = NULL;
-	/*
-	 * If spec2 is empty, s1only already contains all spec1-only entries and
-	 * the work is done.
-	 */
-	if (spec2->entries == NULL) {
-		s2only = NULL;
-		goto end;
-	}
-
-	s2only = mtree_entry_copy_all(spec2->entries);
-	if (s2only == NULL) {
-		mtree_entry_free_all(s1only);
+	sd->writer = mtree_writer_create();
+	if (sd->writer == NULL) {
 		free(sd);
 		return (NULL);
 	}
-	if (s1only == NULL)
-		goto end;
+	s2trie = NULL;
+	if (spec1->entries != NULL) {
+		sd->s1only = mtree_entry_copy_all(spec1->entries);
+		if (sd->s1only == NULL)
+			goto err;
+	}
+	if (spec2->entries != NULL) {
+		sd->s2only = mtree_entry_copy_all(spec2->entries);
+		if (sd->s2only == NULL)
+			goto err;
+	}
+	/*
+	 * If one of the specs has no entries, it's enough to pupulate the
+	 * "only" list of the other spec.
+	 */
+	if (sd->s1only == NULL || sd->s2only == NULL)
+		return (sd);
 
 	/*
 	 * Convert the 2nd spec to a trie to avoid O^2 comparison.
 	 *
 	 * This has a side-effect of "merging" the list by replacing former
 	 * entries with later ones with the same path.
-	 *
-	 * To make this function work correctly on non-merged lists, the 1st
-	 * list should be converted as well, but there is unlikely any practical
-	 * need for this.
 	 */
 	s2trie = mtree_trie_create();
-	e2 = s2only;
+	if (s2trie == NULL)
+		goto err;
+	e2 = sd->s2only;
 	while (e2 != NULL) {
-		if (mtree_trie_insert(s2trie, e2->path, e2) == -1) {
-			mtree_entry_free_all(s1only);
-			mtree_entry_free_all(s2only);
-			free(sd);
-			return (NULL);
-		}
+		if (mtree_trie_insert(s2trie, e2->path, e2) == -1)
+			goto err;
 		e2 = e2->next;
 	}
 
@@ -117,7 +102,7 @@ mtree_spec_diff_create(struct mtree_spec *spec1, struct mtree_spec *spec2,
 	 * Reading from the end allows prepending matching entries to either the
 	 * match or diff list without having to reverse the lists later.
 	 */
-	e1 = mtree_entry_get_last(s1only);
+	e1 = mtree_entry_get_last(sd->s1only);
 	while (e1 != NULL) {
 		prev = e1->prev;
 		e2 = mtree_trie_find(s2trie, e1->path);
@@ -131,60 +116,55 @@ mtree_spec_diff_create(struct mtree_spec *spec1, struct mtree_spec *spec2,
 			 * present in the 1st list and the ones in s2only only
 			 * in the 2nd list.
 			 */
-			s1only = mtree_entry_unlink(s1only, e1);
-			s2only = mtree_entry_unlink(s2only, e2);
-			if (options &
-			    (MTREE_SPEC_DIFF_COLLECT_DIFFERENT |
-			     MTREE_SPEC_DIFF_COLLECT_MATCHING)) {
-				if (keywords == 0 ||
-				    mtree_entry_compare_keywords(e1, e2, keywords,
-				    &differ) == 0) {
-					if (options & MTREE_SPEC_DIFF_COLLECT_MATCHING) {
-						match = mtree_entry_prepend(match, e2);
-						match = mtree_entry_prepend(match, e1);
-					}
-				} else {
-					if (options & MTREE_SPEC_DIFF_COLLECT_DIFFERENT) {
-						mtree_entry_set_keywords(e1, differ, 0);
-						mtree_entry_set_keywords(e2, differ, 0);
-						diff = mtree_entry_prepend(diff, e2);
-						diff = mtree_entry_prepend(diff, e1);
-					}
-				}
-			}
-			if (match != e1 && diff != e1) {
-				/* Not added to either list. */
-				mtree_entry_free(e1);
-				mtree_entry_free(e2);
+		        sd->s1only = mtree_entry_unlink(sd->s1only, e1);
+			sd->s2only = mtree_entry_unlink(sd->s2only, e2);
+
+			if (options & MTREE_SPEC_DIFF_MATCH_EXTRA_KEYWORDS) {
+				/*
+				 * In this case only compare what they have
+				 * in common.
+				 */
+				kcmp = e1->data.keywords & e2->data.keywords;
+			} else
+				kcmp = keywords;
+
+			if (kcmp == 0 ||
+			    mtree_entry_compare_keywords(e1, e2, kcmp, &kdiff) == 0) {
+			    	/* Matching. */
+				sd->match = mtree_entry_prepend(sd->match, e2);
+				sd->match = mtree_entry_prepend(sd->match, e1);
+			} else {
+				/* Different. */
+				mtree_entry_set_keywords(e1,
+				    e1->data.keywords & kdiff, 0);
+				mtree_entry_set_keywords(e2,
+				    e2->data.keywords & kdiff, 0);
+				sd->diff = mtree_entry_prepend(sd->diff, e2);
+				sd->diff = mtree_entry_prepend(sd->diff, e1);
 			}
 		}
 		e1 = prev;
 	}
-	mtree_trie_free(s2trie);
-end:
-	if (options & MTREE_SPEC_DIFF_COLLECT_SPEC1_ONLY)
-		sd->s1only = s1only;
-	else {
-		mtree_entry_free_all(s1only);
-		sd->s1only = NULL;
-	}
-	if (options & MTREE_SPEC_DIFF_COLLECT_SPEC2_ONLY)
-		sd->s2only = s2only;
-	else {
-		mtree_entry_free_all(s2only);
-		sd->s2only = NULL;
-	}
-	sd->match = match;
-	sd->diff  = diff;
+	mtree_trie_free(s2trie, NULL);
 	return (sd);
+err:
+	if (s2trie != NULL)
+		mtree_trie_free(s2trie, NULL);
+
+	mtree_spec_diff_free(sd);
+	return (NULL);
 }
 
+/*
+ * Free the given mtree_spec_diff.
+ */
 void
 mtree_spec_diff_free(struct mtree_spec_diff *sd)
 {
 
 	assert(sd != NULL);
 
+	mtree_writer_free(sd->writer);
 	mtree_entry_free_all(sd->s1only);
 	mtree_entry_free_all(sd->s2only);
 	mtree_entry_free_all(sd->match);
@@ -192,6 +172,9 @@ mtree_spec_diff_free(struct mtree_spec_diff *sd)
 	free(sd);
 }
 
+/*
+ * Return entries that are only present in the first spec.
+ */
 struct mtree_entry *
 mtree_spec_diff_get_spec1_only(struct mtree_spec_diff *sd)
 {
@@ -201,6 +184,9 @@ mtree_spec_diff_get_spec1_only(struct mtree_spec_diff *sd)
 	return (sd->s1only);
 }
 
+/*
+ * Return entries that are only present in the second spec.
+ */
 struct mtree_entry *
 mtree_spec_diff_get_spec2_only(struct mtree_spec_diff *sd)
 {
@@ -210,15 +196,9 @@ mtree_spec_diff_get_spec2_only(struct mtree_spec_diff *sd)
 	return (sd->s2only);
 }
 
-struct mtree_entry *
-mtree_spec_diff_get_different(struct mtree_spec_diff *sd)
-{
-
-	assert(sd != NULL);
-
-	return (sd->diff);
-}
-
+/*
+ * Return entries that are present in both specs and their keywords match.
+ */
 struct mtree_entry *
 mtree_spec_diff_get_matching(struct mtree_spec_diff *sd)
 {
@@ -229,82 +209,93 @@ mtree_spec_diff_get_matching(struct mtree_spec_diff *sd)
 }
 
 /*
+ * Return entries that are present in both specs, but their keywords
+ * don't match.
+ */
+struct mtree_entry *
+mtree_spec_diff_get_different(struct mtree_spec_diff *sd)
+{
+
+	assert(sd != NULL);
+
+	return (sd->diff);
+}
+
+/*
  * Write the spec diff in the original mtree's comm(1)-like format.
+ */
+static int
+write_diff(struct mtree_spec_diff *sd)
+{
+	int ret;
+
+	/*
+	 * Only in first spec.
+	 */
+	mtree_writer_set_format(sd->writer, MTREE_FORMAT_DIFF_FIRST);
+	ret = mtree_writer_write_entries(sd->writer, sd->s1only);
+	if (ret == -1)
+		return (-1);
+	/*
+	 * Only in second spec.
+	 */
+	mtree_writer_set_format(sd->writer, MTREE_FORMAT_DIFF_SECOND);
+	ret = mtree_writer_write_entries(sd->writer, sd->s2only);
+	if (ret == -1)
+		return (-1);
+	/*
+	 * Different in each spec.
+	 */
+	mtree_writer_set_format(sd->writer, MTREE_FORMAT_DIFF_DIFFER);
+	ret = mtree_writer_write_entries(sd->writer, sd->diff);
+	if (ret == -1)
+		return (-1);
+
+	return (ret);
+}
+
+/*
+ * Write spec diff to a file.
  */
 int
 mtree_spec_diff_write_file(struct mtree_spec_diff *sd, FILE *fp)
 {
-	struct mtree_writer	*writer;
-	int			 ret;
 
 	assert(sd != NULL);
 	assert(fp != NULL);
 
-	writer = mtree_writer_create();
-	if (writer == NULL)
-		return (-1);
+	mtree_writer_set_output_file(sd->writer, fp);
 
-	/*
-	 * Only in first spec
-	 */
-	mtree_writer_set_format(writer, MTREE_FORMAT_DIFF_FIRST);
-	ret = mtree_writer_write_file(writer, sd->s1only, fp);
-	if (ret == -1)
-		goto out;
-	/*
-	 * Only in second spec
-	 */
-	mtree_writer_set_format(writer, MTREE_FORMAT_DIFF_SECOND);
-	ret = mtree_writer_write_file(writer, sd->s2only, fp);
-	if (ret == -1)
-		goto out;
-	/*
-	 * Different in each spec
-	 */
-	mtree_writer_set_format(writer, MTREE_FORMAT_DIFF_DIFFER);
-	ret = mtree_writer_write_file(writer, sd->diff, fp);
-	if (ret == -1)
-		goto out;
-out:
-	mtree_writer_free(writer);
-	return (ret);
+	return (write_diff(sd));
 }
 
+/*
+ * Write spec diff to a file descriptor.
+ */
 int
 mtree_spec_diff_write_fd(struct mtree_spec_diff *sd, int fd)
 {
-	struct mtree_writer	*writer;
-	int			 ret;
 
 	assert(sd != NULL);
 	assert(fd != -1);
 
-	writer = mtree_writer_create();
-	if (writer == NULL)
-		return (-1);
+	mtree_writer_set_output_fd(sd->writer, fd);
 
-	/*
-	 * Only in first spec
-	 */
-	mtree_writer_set_format(writer, MTREE_FORMAT_DIFF_FIRST);
-	ret = mtree_writer_write_fd(writer, sd->s1only, fd);
-	if (ret == -1)
-		goto out;
-	/*
-	 * Only in second spec
-	 */
-	mtree_writer_set_format(writer, MTREE_FORMAT_DIFF_SECOND);
-	ret = mtree_writer_write_fd(writer, sd->s2only, fd);
-	if (ret == -1)
-		goto out;
-	/*
-	 * Different in each spec
-	 */
-	mtree_writer_set_format(writer, MTREE_FORMAT_DIFF_DIFFER);
-	ret = mtree_writer_write_fd(writer, sd->diff, fd);
-	if (ret == -1)
-		goto out;
-out:
-	mtree_writer_free(writer);
-	return (ret);
+	return (write_diff(sd));
+}
+
+/*
+ * Write spec diff to a custom writer.
+ */
+int
+mtree_spec_diff_write_writer(struct mtree_spec_diff *sd, mtree_writer_fn f,
+    void *user_data)
+{
+
+	assert(sd != NULL);
+	assert(f != NULL);
+
+	mtree_writer_set_output_writer(sd->writer, f, user_data);
+
+	return (write_diff(sd));
 }

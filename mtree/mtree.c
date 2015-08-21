@@ -26,16 +26,15 @@
  */
 
 #include <errno.h>
+#include <mtree.h>
+#include <mtree_file.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include <libmtree/mtree.h>
-#include <libmtree/mtree_file.h>
-
-#include "mtree.h"
+#include "local.h"
 
 static struct {
 	int		flavor;
@@ -50,9 +49,14 @@ int	flavor = FLAVOR_MTREE;
 
 int	bflag, dflag, eflag, iflag, jflag, lflag, Lflag, mflag, Mflag, nflag,
 	qflag, rflag, sflag, Sflag, tflag, uflag, xflag, Wflag;
+
+// XXX needed for -s ???
 char	fullpath[MAXPATHLEN];
 
-long	keywords = MTREE_KEYWORD_MASK_DEFAULT;
+long	 keywords = KEYWORDS;
+taglist  include_tags;
+taglist  exclude_tags;
+uint32_t crc_total = ~0;
 
 static const char *_progname;
 
@@ -122,7 +126,7 @@ main(int argc, char **argv)
 
 	_progname = argv[0];
 
-	cflag = Cflag = Dflag = Uflag = wflag = 0;
+	cflag = Cflag = Dflag = Pflag = Uflag = wflag = 0;
 	dir = NULL;
 	spec1 = NULL;
 	spec2 = NULL;
@@ -148,11 +152,10 @@ main(int argc, char **argv)
 			Dflag = 1;
 			break;
 		case 'E':
-			// TODO
-			// parsetags(&excludetags, optarg);
+			parse_tags(&exclude_tags, optarg);
 			break;
 		case 'e':
-			eflag = 1; // TODO
+			eflag = 1;
 			break;
 		case 'f':
 			if (specfile1 == NULL)
@@ -172,11 +175,10 @@ main(int argc, char **argv)
 				usage();
 			break;
 		case 'i':
-			iflag = 1; // TODO
+			iflag = 1;
 			break;
 		case 'I':
-			// TODO
-			// parsetags(&includetags, optarg);
+			parse_tags(&include_tags, optarg);
 			break;
 		case 'j':
 			jflag = 1;
@@ -199,10 +201,10 @@ main(int argc, char **argv)
 			Lflag = 1;
 			break;
 		case 'm':
-			mflag = 1; // TODO
+			mflag = 1;
 			break;
 		case 'M':
-			Mflag = 1; // TODO
+			Mflag = 1;
 			break;
 		case 'n':
 			nflag = 1;
@@ -213,7 +215,6 @@ main(int argc, char **argv)
 				    optarg);
 			break;
 		case 'O':
-			// TODO
 			load_only(optarg);
 			break;
 		case 'p':
@@ -235,31 +236,33 @@ main(int argc, char **argv)
 					keywords &= ~parse_keyword(p);
 			break;
 		case 's':
-			sflag = 1; // TODO
+			sflag = 1;
+			crc_total = ~strtol(optarg, &p, 0);
+			if (*p)
+				mtree_err("illegal seed value -- %s", optarg);
 			break;
 		case 'S':
-			Sflag = 1; // TODO
+			Sflag = 1;
 			break;
 		case 't':
-			tflag = 1; // TODO
+			tflag = 1;
 			break;
 		case 'u':
-			uflag = 1; // TODO
+			uflag = 1;
 			break;
 		case 'U':
-			Uflag = uflag = 1; // TODO
+			Uflag = uflag = 1;
 			break;
 		case 'w':
-			wflag = 1; // TODO
+			wflag = 1;
 			break;
 		case 'W':
-			Wflag = 1; // TODO
+			Wflag = 1;
 			break;
 		case 'x':
 			xflag = 1;
 			break;
 		case 'X':
-			// TODO
 			if (read_excludes(optarg) == -1)
 				mtree_err("%s: %s", optarg, strerror(errno));
 			break;
@@ -304,33 +307,26 @@ main(int argc, char **argv)
 	if (Pflag)
 		Lflag = 0;
 
-	if (specfile2 && (cflag || Cflag || Dflag)){
-		printf("specfile1=%s\n",specfile1);
-		printf("specfile2=%s\n",specfile2);
+	if (specfile2 && (cflag || Cflag || Dflag))
 		mtree_err("Double -f, -c, -C and -D flags are mutually exclusive");
-	}
-
 	if (dir && specfile2)
 		mtree_err("Double -f and -p flags are mutually exclusive");
-
-	if (dir && chdir(dir))
-		mtree_err("%s: %s", dir, strerror(errno));
-
-	if ((cflag || sflag) && !getcwd(fullpath, sizeof(fullpath)))
-		mtree_err("%s", strerror(errno));
-
+	if (iflag && mflag)
+		mtree_err("-i and -m flags are mutually exclusive");
+	if (lflag && uflag)
+		mtree_err("-l and -u flags are mutually exclusive");
 	if ((cflag && Cflag) || (cflag && Dflag) || (Cflag && Dflag))
 		mtree_err("-c, -C and -D flags are mutually exclusive");
 
-	if (iflag && mflag)
-		mtree_err("-i and -m flags are mutually exclusive");
-
-	if (lflag && uflag)
-		mtree_err("-l and -u flags are mutually exclusive");
-
+	/*
+	 * Write a spec for `dir' to stdout
+	 */
 	if (cflag) {
-		/* Write a spec for `dir' to stdout */
-		if (write_spec_tree(stdout, fullpath) != 0)
+		/*
+		if (dir != NULL && chdir(dir) != 0)
+			mtree_err("%s: %s", dir, strerror(errno));
+			*/
+		if (write_spec_tree(stdout, dir) != 0)
 			mtree_err("Failed to write spec: %s", strerror(errno));
 		exit(0);
 	}
@@ -342,6 +338,9 @@ main(int argc, char **argv)
 	} else
 		spec1 = stdin;
 
+	/*
+	 * Read spec from stdin or file and convert it to mtree v2.0 format
+	 */
 	if (Cflag || Dflag) {
 		if (read_write_spec(spec1, stdout, Dflag) != 0)
 			mtree_err("%s", strerror(errno));
@@ -352,10 +351,18 @@ main(int argc, char **argv)
 		spec2 = fopen(specfile2, "r");
 		if (spec2 == NULL)
 			mtree_err("%s: %s", specfile2, strerror(errno));
-
+		/*
+		 * Compare two specs
+		 */
 		status = compare_spec(spec1, spec2, stdout);
-	} else
+	} else {
+		if (dir != NULL && chdir(dir) != 0)
+			mtree_err("%s: %s", dir, strerror(errno));
+		/*
+		 * Verify spec against `dir'
+		 */
 		status = verify_spec(spec1);
+	}
 
 	if (Uflag && (status == MISMATCHEXIT))
 		status = 0;

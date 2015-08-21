@@ -27,14 +27,17 @@
 #ifndef _LIBMTREE_MTREE_FILE_H_
 #define _LIBMTREE_MTREE_FILE_H_
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <stdio.h>
 
-char	*mtree_digest_file(int type, const char *path);
-int	 mtree_digest_file_crc32(const char *path, uint32_t *crc, uint32_t *crc_total);
+int	 mtree_cksum_fd(int fd, uint32_t *crc);
+int	 mtree_cksum_path(const char *path, uint32_t *crc);
 
-int	 mtree_spec_read_file(struct mtree_spec *spec, FILE *fp);
-int	 mtree_spec_read_fd(struct mtree_spec *spec, int fd);
+char	*mtree_digest_fd(int types, int fd);
+char	*mtree_digest_path(int types, const char *path);
+
+int	 mtree_spec_read_spec_file(struct mtree_spec *spec, FILE *fp);
+int	 mtree_spec_read_spec_fd(struct mtree_spec *spec, int fd);
 
 int	 mtree_spec_write_file(struct mtree_spec *spec, FILE *fp);
 int	 mtree_spec_write_fd(struct mtree_spec *spec, int fd);

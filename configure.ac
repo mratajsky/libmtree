@@ -7,8 +7,8 @@ AC_PREREQ([2.60])
 # =======================================================================
 
 m4_define(libmtree_major_version, 0)
-m4_define(libmtree_minor_version, 0)
-m4_define(libmtree_micro_version, 1)
+m4_define(libmtree_minor_version, 9)
+m4_define(libmtree_micro_version, 0)
 m4_define(libmtree_version,
          [libmtree_major_version.libmtree_minor_version.libmtree_micro_version])
 
@@ -62,9 +62,22 @@ AC_PROG_CC_STDC
 AC_PROG_INSTALL
 
 # Checks for header files.
-AC_CHECK_HEADERS([string.h], [], [
+AC_HEADER_ASSERT
+AC_HEADER_MAJOR
+if test "$ac_cv_header_sys_types_h_makedev" = "yes" -o \
+        "$ac_cv_header_sys_mkdev_h" = "yes" -o \
+        "$ac_cv_header_sys_sysmacros.h" = "yes"; then
+    AC_DEFINE([HAVE_MAKEDEV], [1],
+              [Define to 1 if you have the `makedev' function])
+    AC_DEFINE([HAVE_MAJOR], [1],
+              [Define to 1 if you have the `major' function])
+    AC_DEFINE([HAVE_MINOR], [1],
+              [Define to 1 if you have the `minor' function])
+fi
+AC_CHECK_HEADERS([errno.h fcntl.h], [], [
     AC_MSG_ERROR([Required header not found.])
 ])
+AC_SYS_LARGEFILE
 
 LT_PREREQ([2.2])
 LT_INIT
@@ -98,10 +111,13 @@ AC_SEARCH_LIBS([fparseln], [util], [
 # Some systems don't have st_mtim or st_flags
 AC_CHECK_MEMBERS([struct stat.st_mtim, struct stat.st_mtime])
 AC_CHECK_MEMBERS([struct stat.st_flags])
+AC_CHECK_MEMBERS([struct stat.st_rdev])
 
 # BSD only
 AC_CHECK_FUNCS([pwcache_userdb pwcache_groupdb])
 AC_CHECK_FUNCS([fflagstostr strtofflags])
+AC_CHECK_FUNCS([uid_from_user user_from_uid])
+AC_CHECK_FUNCS([gid_from_group group_from_gid])
 
 # Digests
 AC_CHECK_LIB(md, MD5Init)
@@ -111,6 +127,18 @@ AC_CHECK_LIB(md, MD5Init)
 # NetBSD/OpenBSD have:
 #  md5.h sha1.h sha2.h rmd160.h
 AC_CHECK_HEADERS([md5.h sha.h sha1.h sha2.h sha256.h sha512.h ripemd.h rmd160.h])
+
+PKG_CHECK_MODULES([NETTLE], [nettle], have_nettle=yes, have_nettle=no)
+if test "x$have_nettle" = "xyes"; then
+    AC_DEFINE(HAVE_NETTLE, [], [Define if we have libnettle support])
+    AC_SUBST(HAVE_NETTLE)
+    AC_SUBST(NETTLE_CFLAGS)
+    AC_SUBST(NETTLE_LIBS)
+fi
+
+# These are for mtree(8):
+AC_CHECK_FUNCS([lchflags lchmod])
+AC_CHECK_FUNCS([utimensat])
 
 # =======================================================================
 # Compiler options
@@ -123,6 +151,7 @@ AC_CONFIG_FILES([
     Makefile
     compat/Makefile
     libmtree/Makefile
+    libmtree/tests/Makefile
     mtree/Makefile
     data/Makefile
     data/libmtree.pc

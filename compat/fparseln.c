@@ -26,6 +26,8 @@
 
 #include "config.h"
 
+typedef int dont_warn_me_about_empty_translation_unit;
+
 #ifndef HAVE_FPARSELN
 #include <assert.h>
 #include <errno.h>

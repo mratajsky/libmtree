@@ -32,266 +32,609 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
 #include <unistd.h>
-
-#ifdef HAVE_MD5_H
-#include <md5.h>
-#endif
-
-#ifdef HAVE_SHA_H
-#include <sha.h>
-#else
-#ifdef HAVE_SHA1_H
-#include <sha1.h>
-#endif
-#endif /* HAVE_SHA_H */
-
-#ifdef HAVE_SHA2_H
-#include <sha2.h>
-#else
-#ifdef HAVE_SHA256_H
-#include <sha256.h>
-#endif
-#ifdef HAVE_SHA512_H
-#include <sha512.h>
-#endif
-#endif /* HAVE_SHA2_H */
-
-#ifdef HAVE_RIPEMD_H
-#include <ripemd.h>
-#else
-#ifdef HAVE_RMD160_H
-#include <rmd160.h>
-#endif
-#endif /* HAVE_RIPEMD_H */
 
 #include "mtree.h"
 #include "mtree_file.h"
-#include "mtree_private.h"
 
-static const uint32_t crctab[] = {
-	0x0,
-	0x04c11db7, 0x09823b6e, 0x0d4326d9, 0x130476dc, 0x17c56b6b,
-	0x1a864db2, 0x1e475005, 0x2608edb8, 0x22c9f00f, 0x2f8ad6d6,
-	0x2b4bcb61, 0x350c9b64, 0x31cd86d3, 0x3c8ea00a, 0x384fbdbd,
-	0x4c11db70, 0x48d0c6c7, 0x4593e01e, 0x4152fda9, 0x5f15adac,
-	0x5bd4b01b, 0x569796c2, 0x52568b75, 0x6a1936c8, 0x6ed82b7f,
-	0x639b0da6, 0x675a1011, 0x791d4014, 0x7ddc5da3, 0x709f7b7a,
-	0x745e66cd, 0x9823b6e0, 0x9ce2ab57, 0x91a18d8e, 0x95609039,
-	0x8b27c03c, 0x8fe6dd8b, 0x82a5fb52, 0x8664e6e5, 0xbe2b5b58,
-	0xbaea46ef, 0xb7a96036, 0xb3687d81, 0xad2f2d84, 0xa9ee3033,
-	0xa4ad16ea, 0xa06c0b5d, 0xd4326d90, 0xd0f37027, 0xddb056fe,
-	0xd9714b49, 0xc7361b4c, 0xc3f706fb, 0xceb42022, 0xca753d95,
-	0xf23a8028, 0xf6fb9d9f, 0xfbb8bb46, 0xff79a6f1, 0xe13ef6f4,
-	0xe5ffeb43, 0xe8bccd9a, 0xec7dd02d, 0x34867077, 0x30476dc0,
-	0x3d044b19, 0x39c556ae, 0x278206ab, 0x23431b1c, 0x2e003dc5,
-	0x2ac12072, 0x128e9dcf, 0x164f8078, 0x1b0ca6a1, 0x1fcdbb16,
-	0x018aeb13, 0x054bf6a4, 0x0808d07d, 0x0cc9cdca, 0x7897ab07,
-	0x7c56b6b0, 0x71159069, 0x75d48dde, 0x6b93dddb, 0x6f52c06c,
-	0x6211e6b5, 0x66d0fb02, 0x5e9f46bf, 0x5a5e5b08, 0x571d7dd1,
-	0x53dc6066, 0x4d9b3063, 0x495a2dd4, 0x44190b0d, 0x40d816ba,
-	0xaca5c697, 0xa864db20, 0xa527fdf9, 0xa1e6e04e, 0xbfa1b04b,
-	0xbb60adfc, 0xb6238b25, 0xb2e29692, 0x8aad2b2f, 0x8e6c3698,
-	0x832f1041, 0x87ee0df6, 0x99a95df3, 0x9d684044, 0x902b669d,
-	0x94ea7b2a, 0xe0b41de7, 0xe4750050, 0xe9362689, 0xedf73b3e,
-	0xf3b06b3b, 0xf771768c, 0xfa325055, 0xfef34de2, 0xc6bcf05f,
-	0xc27dede8, 0xcf3ecb31, 0xcbffd686, 0xd5b88683, 0xd1799b34,
-	0xdc3abded, 0xd8fba05a, 0x690ce0ee, 0x6dcdfd59, 0x608edb80,
-	0x644fc637, 0x7a089632, 0x7ec98b85, 0x738aad5c, 0x774bb0eb,
-	0x4f040d56, 0x4bc510e1, 0x46863638, 0x42472b8f, 0x5c007b8a,
-	0x58c1663d, 0x558240e4, 0x51435d53, 0x251d3b9e, 0x21dc2629,
-	0x2c9f00f0, 0x285e1d47, 0x36194d42, 0x32d850f5, 0x3f9b762c,
-	0x3b5a6b9b, 0x0315d626, 0x07d4cb91, 0x0a97ed48, 0x0e56f0ff,
-	0x1011a0fa, 0x14d0bd4d, 0x19939b94, 0x1d528623, 0xf12f560e,
-	0xf5ee4bb9, 0xf8ad6d60, 0xfc6c70d7, 0xe22b20d2, 0xe6ea3d65,
-	0xeba91bbc, 0xef68060b, 0xd727bbb6, 0xd3e6a601, 0xdea580d8,
-	0xda649d6f, 0xc423cd6a, 0xc0e2d0dd, 0xcda1f604, 0xc960ebb3,
-	0xbd3e8d7e, 0xb9ff90c9, 0xb4bcb610, 0xb07daba7, 0xae3afba2,
-	0xaafbe615, 0xa7b8c0cc, 0xa379dd7b, 0x9b3660c6, 0x9ff77d71,
-	0x92b45ba8, 0x9675461f, 0x8832161a, 0x8cf30bad, 0x81b02d74,
-	0x857130c3, 0x5d8a9099, 0x594b8d2e, 0x5408abf7, 0x50c9b640,
-	0x4e8ee645, 0x4a4ffbf2, 0x470cdd2b, 0x43cdc09c, 0x7b827d21,
-	0x7f436096, 0x7200464f, 0x76c15bf8, 0x68860bfd, 0x6c47164a,
-	0x61043093, 0x65c52d24, 0x119b4be9, 0x155a565e, 0x18197087,
-	0x1cd86d30, 0x029f3d35, 0x065e2082, 0x0b1d065b, 0x0fdc1bec,
-	0x3793a651, 0x3352bbe6, 0x3e119d3f, 0x3ad08088, 0x2497d08d,
-	0x2056cd3a, 0x2d15ebe3, 0x29d4f654, 0xc5a92679, 0xc1683bce,
-	0xcc2b1d17, 0xc8ea00a0, 0xd6ad50a5, 0xd26c4d12, 0xdf2f6bcb,
-	0xdbee767c, 0xe3a1cbc1, 0xe760d676, 0xea23f0af, 0xeee2ed18,
-	0xf0a5bd1d, 0xf464a0aa, 0xf9278673, 0xfde69bc4, 0x89b8fd09,
-	0x8d79e0be, 0x803ac667, 0x84fbdbd0, 0x9abc8bd5, 0x9e7d9662,
-	0x933eb0bb, 0x97ffad0c, 0xafb010b1, 0xab710d06, 0xa6322bdf,
-	0xa2f33668, 0xbcb4666d, 0xb8757bda, 0xb5365d03, 0xb1f740b4
+/*
+ * Sizes of resulting byte arrays for various digest types.
+ */
+#define DIGEST_SIZE_MD5		16
+#define DIGEST_SIZE_SHA1	20
+#define DIGEST_SIZE_SHA256	32
+#define DIGEST_SIZE_SHA384	48
+#define DIGEST_SIZE_SHA512	64
+#define DIGEST_SIZE_RMD160	20
+#define DIGEST_SIZE_MAX		DIGEST_SIZE_SHA512
+
+/* =========================================================================
+ * MD5
+ * ========================================================================= */
+#if defined(HAVE_MD5_H)
+#  include <md5.h>
+#  define MTREE_MD5_INIT(ctxp)			MD5Init(ctxp)
+#  define MTREE_MD5_FILE(path)			MD5File(path, NULL)
+#  define MTREE_MD5_UPDATE(ctxp, data, len)	MD5Update(ctxp, data, len)
+#  define MTREE_MD5_FINAL(ctxp, out)		MD5Final(out, ctxp)
+#elif defined(HAVE_NETTLE)
+#  include <nettle/md5.h>
+#  define MTREE_MD5_INIT(ctxp)			md5_init(ctxp)
+#  define MTREE_MD5_UPDATE(ctxp, data, len)	md5_update(ctxp, len, data)
+#  define MTREE_MD5_FINAL(ctxp, out)		md5_digest(ctxp, DIGEST_SIZE_MD5, out)
+#endif
+
+/* =========================================================================
+ * SHA1
+ * ========================================================================= */
+#if defined(HAVE_SHA_H)
+#  include <sha.h>
+#  define MTREE_SHA1_INIT(ctxp)			SHA_Init(ctxp)
+#  define MTREE_SHA1_FILE(path)			SHA_File(path, NULL)
+#  define MTREE_SHA1_UPDATE(ctxp, data, len)	SHA_Update(ctxp, data, len)
+#  define MTREE_SHA1_FINAL(ctxp, out)		SHA_Final(out, ctxp)
+#elif defined(HAVE_SHA1_H)
+#  include <sha1.h>
+#  define MTREE_SHA1_INIT(ctxp)			SHA1Init(ctxp)
+#  define MTREE_SHA1_FILE(path)			SHA1File(path, NULL)
+#  define MTREE_SHA1_UPDATE(ctxp, data, len)	SHA1Update(ctxp, data, len)
+#  define MTREE_SHA1_FINAL(ctxp, out)		SHA1Final(out, ctxp)
+#elif defined(HAVE_NETTLE)
+#  include <nettle/sha1.h>
+#  define MTREE_SHA1_INIT(ctxp)			sha1_init(ctxp)
+#  define MTREE_SHA1_UPDATE(ctxp, data, len)	sha1_update(ctxp, len, data)
+#  define MTREE_SHA1_FINAL(ctxp, out)		sha1_digest(ctxp, DIGEST_SIZE_SHA1, out)
+#endif
+
+/* =========================================================================
+ * SHA256, SHA384, SHA512
+ * =========================================================================
+ * NetBSD and nettle provide support for SHA256, SHA384 and SHA512 in sha2.h.
+ *
+ * FreeBSD provides SHA256 and SHA512 in sha256.h and sha512.h, support for
+ * SHA384 may still be gained through nettle.
+ */
+#if defined(HAVE_SHA2_H)
+#  include <sha2.h>
+#else
+#  if defined(HAVE_SHA256_H)
+#    include <sha256.h>
+#  endif
+#  if defined(HAVE_SHA512_H)
+#    include <sha512.h>
+#  endif
+#  if defined(HAVE_NETTLE)
+#    include <nettle/sha2.h>
+#  endif
+#endif
+
+#if defined(HAVE_SHA2_H)
+#  define MTREE_SHA384_INIT(ctxp)		SHA384_Init(ctxp)
+#  define MTREE_SHA384_FILE(path)		SHA384_File(path, NULL)
+#  define MTREE_SHA384_UPDATE(ctxp, data, len)	SHA384_Update(ctxp, data, len)
+#  define MTREE_SHA384_FINAL(ctxp, out)		SHA384_Final(out, ctxp)
+#elif defined(HAVE_NETTLE)
+#  define MTREE_SHA384_INIT(ctxp)		sha384_init(ctxp)
+#  define MTREE_SHA384_UPDATE(ctxp, data, len)	sha384_update(ctxp, len, data)
+#  define MTREE_SHA384_FINAL(ctxp, out)		sha384_digest(ctxp, DIGEST_SIZE_SHA384, out)
+#endif
+
+#if defined(HAVE_SHA2_H) || defined(HAVE_SHA256_H)
+#  define MTREE_SHA256_INIT(ctxp)		SHA256_Init(ctxp)
+#  define MTREE_SHA256_FILE(path)		SHA256_File(path, NULL)
+#  define MTREE_SHA256_UPDATE(ctxp, data, len)	SHA256_Update(ctxp, data, len)
+#  define MTREE_SHA256_FINAL(ctxp, out)		SHA256_Final(out, ctxp)
+#elif defined(HAVE_NETTLE)
+#  define MTREE_SHA256_INIT(ctxp)		sha256_init(ctxp)
+#  define MTREE_SHA256_UPDATE(ctxp, data, len)	sha256_update(ctxp, len, data)
+#  define MTREE_SHA256_FINAL(ctxp, out)		sha256_digest(ctxp, DIGEST_SIZE_SHA256, out)
+#endif
+
+#if defined(HAVE_SHA2_H) || defined(HAVE_SHA512_H)
+#  define MTREE_SHA512_INIT(ctxp)		SHA512_Init(ctxp)
+#  define MTREE_SHA512_FILE(path)		SHA512_File(path, NULL)
+#  define MTREE_SHA512_UPDATE(ctxp, data, len)	SHA512_Update(ctxp, data, len)
+#  define MTREE_SHA512_FINAL(ctxp, out)		SHA512_Final(out, ctxp)
+#elif defined(HAVE_NETTLE)
+#  define MTREE_SHA512_INIT(ctxp)		sha512_init(ctxp)
+#  define MTREE_SHA512_UPDATE(ctxp, data, len)	sha512_update(ctxp, len, data)
+#  define MTREE_SHA512_FINAL(ctxp, out)		sha512_digest(ctxp, DIGEST_SIZE_SHA512, out)
+#endif
+
+/* =========================================================================
+ * RMD160
+ * ========================================================================= */
+#if defined(HAVE_RIPEMD_H)
+#  include <ripemd.h>
+#  define MTREE_RMD160_INIT(ctxp)		RIPEMD160_Init(ctxp)
+#  define MTREE_RMD160_FILE(path)		RIPEMD160_File(path, NULL)
+#  define MTREE_RMD160_UPDATE(ctxp, data, len)	RIPEMD160_Update(ctxp, data, len)
+#  define MTREE_RMD160_FINAL(ctxp, out)		RIPEMD160_Final(out, ctxp)
+#elif defined(HAVE_RMD160_H)
+#  include <rmd160.h>
+#  define MTREE_RMD160_INIT(ctxp)		RMD160Init(ctxp)
+#  define MTREE_RMD160_FILE(path)		RMD160File(path, NULL)
+#  define MTREE_RMD160_UPDATE(ctxp, data, len)	RMD160Update(ctxp, data, len)
+#  define MTREE_RMD160_FINAL(ctxp, out)		RMD160Final(out, ctxp)
+#elif defined(HAVE_NETTLE)
+#  include <nettle/ripemd160.h>
+#  define MTREE_RMD160_INIT(ctxp)		ripemd160_init(ctxp)
+#  define MTREE_RMD160_UPDATE(ctxp, data, len)	ripemd160_update(ctxp, len, data)
+#  define MTREE_RMD160_FINAL(ctxp, out)		ripemd160_digest(ctxp, DIGEST_SIZE_RMD160, out)
+#endif
+
+/*
+ * mtree_digest
+ */
+struct mtree_digest {
+	int				 types;
+	int				 done;
+	struct {
+		char			 *md5;
+		char			 *sha1;
+		char			 *sha256;
+		char			 *sha384;
+		char			 *sha512;
+		char			 *rmd160;
+	} result;
+
+	struct {
+#if defined(HAVE_MD5_H)
+		MD5_CTX			 md5;
+#elif defined(HAVE_NETTLE)
+		struct md5_ctx		 md5;
+#endif
+#if defined(HAVE_SHA_H)
+		SHA_CTX			 sha1;
+#elif defined(HAVE_SHA1_H)
+		SHA1_CTX		 sha1;
+#elif defined(HAVE_NETTLE)
+		struct sha1_ctx		 sha1;
+#endif
+#if defined(HAVE_SHA2_H) || defined(HAVE_SHA256_H)
+		SHA256_CTX		 sha256;
+#elif defined(HAVE_NETTLE)
+		struct sha256_ctx	 sha256;
+#endif
+#if defined(HAVE_SHA2_H)
+		SHA384_CTX		 sha384;
+#elif defined(HAVE_NETTLE)
+		struct sha384_ctx	 sha384;
+#endif
+#if defined(HAVE_SHA2_H) || defined(HAVE_SHA512_H)
+		SHA512_CTX		 sha512;
+#elif defined(HAVE_NETTLE)
+		struct sha512_ctx	 sha512;
+#endif
+#if defined(HAVE_RIPEMD_H)
+		RIPEMD160_CTX		 rmd160;
+#elif defined(HAVE_RMD160_H)
+		RMD160_CTX		 rmd160;
+#elif defined(HAVE_NETTLE)
+		struct ripemd160_ctx	 rmd160;
+#endif
+		/*
+		 * Avoid potential compilation error when no digests are
+		 * available.
+		 */
+		char			 unused;
+	} ctx;
 };
 
-static char *
-digest_file_md5(const char *path)
+/*
+ * Initialize all the requested digests.
+ */
+static void
+digest_init(struct mtree_digest *digest)
 {
-#if defined(HAVE_MD5_H)
-	return (MD5File(path, NULL));
+
+#ifdef MTREE_MD5_INIT
+	if (digest->types & MTREE_DIGEST_MD5)
+		MTREE_MD5_INIT(&digest->ctx.md5);
 #endif
-	errno = EINVAL;
-	return (NULL);
+#ifdef MTREE_SHA1_INIT
+	if (digest->types & MTREE_DIGEST_SHA1)
+		MTREE_SHA1_INIT(&digest->ctx.sha1);
+#endif
+#ifdef MTREE_SHA256_INIT
+	if (digest->types & MTREE_DIGEST_SHA256)
+		MTREE_SHA256_INIT(&digest->ctx.sha256);
+#endif
+#ifdef MTREE_SHA384_INIT
+	if (digest->types & MTREE_DIGEST_SHA384)
+		MTREE_SHA384_INIT(&digest->ctx.sha384);
+#endif
+#ifdef MTREE_SHA512_INIT
+	if (digest->types & MTREE_DIGEST_SHA512)
+		MTREE_SHA512_INIT(&digest->ctx.sha512);
+#endif
+#ifdef MTREE_RMD160_INIT
+	if (digest->types & MTREE_DIGEST_RMD160)
+		MTREE_RMD160_INIT(&digest->ctx.rmd160);
+#endif
 }
 
-static char *
-digest_file_rmd160(const char *path)
+/*
+ * Create a new mtree_digest and initialize the digest's context.
+ */
+struct mtree_digest *
+mtree_digest_create(int types)
 {
-#if defined(HAVE_RIPEMD_H)
-	return (RIPEMD160_File(path, NULL));
-#elif defined(HAVE_RMD160_H)
-	return (RMD160File(path, NULL));
-#endif
-	errno = EINVAL;
-	return (NULL);
-}
+	struct mtree_digest *digest;
 
-static char *
-digest_file_sha1(const char *path)
-{
-#if defined(HAVE_SHA_H)
-	return (SHA1_File(path, NULL));
-#elif defined(HAVE_SHA1_H)
-	return (SHA1File(path, NULL));
-#endif
-	errno = EINVAL;
-	return (NULL);
-}
-
-static char *
-digest_file_sha256(const char *path)
-{
-#if defined(HAVE_SHA256_H) || defined(HAVE_SHA2_H)
-	return (SHA256_File(path, NULL));
-#endif
-	errno = EINVAL;
-	return (NULL);
-}
-
-static char *
-digest_file_sha384(const char *path)
-{
-#if defined(HAVE_SHA2_H)
-	return (SHA384_File(path, NULL));
-#endif
-	errno = EINVAL;
-	return (NULL);
-}
-
-static char *
-digest_file_sha512(const char *path)
-{
-#if defined(HAVE_SHA512_H) || defined(HAVE_SHA2_H)
-	return (SHA512_File(path, NULL));
-#endif
-	errno = EINVAL;
-	return (NULL);
-}
-
-char *
-mtree_digest_file(int type, const char *path)
-{
-	char *digest = NULL;
-
-	assert(path != NULL);
-
-	switch (type) {
-	case MTREE_DIGEST_MD5:
-		digest = digest_file_md5(path);
-		break;
-	case MTREE_DIGEST_RMD160:
-		digest = digest_file_rmd160(path);
-		break;
-	case MTREE_DIGEST_SHA1:
-		digest = digest_file_sha1(path);
-		break;
-	case MTREE_DIGEST_SHA256:
-		digest = digest_file_sha256(path);
-		break;
-	case MTREE_DIGEST_SHA384:
-		digest = digest_file_sha384(path);
-		break;
-	case MTREE_DIGEST_SHA512:
-		digest = digest_file_sha512(path);
-		break;
+	digest = calloc(1, sizeof(struct mtree_digest));
+	if (digest != NULL) {
+		digest->types = mtree_digest_get_available_types() & types;
+		digest_init(digest);
 	}
-
 	return (digest);
 }
 
 /*
- * Compute a POSIX 1003.2 checksum.  This routine has been broken out so that
- * other programs can use it.  It takes a file descriptor to read from and
- * locations to store the crc and the number of bytes read.  It returns 0 on
- * success and 1 on failure.  Errno is set on failure.
+ * Free the given mtree_digest.
  */
-static int
-crc32(int fd, uint32_t *crc_val, uint32_t *crc_total)
+void
+mtree_digest_free(struct mtree_digest *digest)
 {
-	uint32_t thecrc, len;
-	uint32_t crctot;
-	uint8_t *p;
-	uint8_t buf[16 * 1024];
-	int nr;
 
-#define	COMPUTE(var, ch)	(var) = (var) << 8 ^ crctab[(var) >> 24 ^ (ch)]
+	assert(digest != NULL);
 
-	thecrc = crctot = len = 0;
-	if (crc_total)
-		crctot = ~(*crc_total);
-	while ((nr = read(fd, buf, sizeof(buf))) > 0)
-		if (crc_total) {
-			for (len += nr, p = buf; nr--; ++p) {
-				COMPUTE(thecrc, *p);
-				COMPUTE(crctot, *p);
-			}
-		} else {
-			for (len += nr, p = buf; nr--; ++p)
-				COMPUTE(thecrc, *p);
-		}
-	if (nr < 0)
-		return (1);
-
-	/* Include the length of the file. */
-	if (crc_total) {
-		for (; len != 0; len >>= 8) {
-			COMPUTE(thecrc, len & 0xff);
-			COMPUTE(crctot, len & 0xff);
-		}
-	} else {
-		for (; len != 0; len >>= 8)
-			COMPUTE(thecrc, len & 0xff);
-	}
-
-	*crc_val = ~thecrc;
-	if (crc_total)
-		*crc_total = ~crctot;
-
-	return (0);
-#undef COMPUTE
+#ifdef MTREE_MD5_INIT
+	free(digest->result.md5);
+#endif
+#ifdef MTREE_SHA1_INIT
+	free(digest->result.sha1);
+#endif
+#ifdef MTREE_SHA256_INIT
+	free(digest->result.sha256);
+#endif
+#ifdef MTREE_SHA384_INIT
+	free(digest->result.sha384);
+#endif
+#ifdef MTREE_SHA512_INIT
+	free(digest->result.sha512);
+#endif
+#ifdef MTREE_RMD160_INIT
+	free(digest->result.rmd160);
+#endif
+	free(digest);
 }
 
-// XXX provide buffer functions, see if this can be unified with
-// the other digests
-int
-mtree_digest_file_crc32(const char *path, uint32_t *crc, uint32_t *crc_total)
+/*
+ * Reset the given mtree_digest to its initial state.
+ */
+void
+mtree_digest_reset(struct mtree_digest *digest)
 {
-	int fd;
+
+	assert(digest != NULL);
+
+#ifdef MTREE_MD5_INIT
+	free(digest->result.md5);
+	digest->result.md5 = NULL;
+#endif
+#ifdef MTREE_SHA1_INIT
+	free(digest->result.sha1);
+	digest->result.sha1 = NULL;
+#endif
+#ifdef MTREE_SHA256_INIT
+	free(digest->result.sha256);
+	digest->result.sha256 = NULL;
+#endif
+#ifdef MTREE_SHA384_INIT
+	free(digest->result.sha384);
+	digest->result.sha384 = NULL;
+#endif
+#ifdef MTREE_SHA512_INIT
+	free(digest->result.sha512);
+	digest->result.sha512 = NULL;
+#endif
+#ifdef MTREE_RMD160_INIT
+	free(digest->result.rmd160);
+	digest->result.rmd160 = NULL;
+#endif
+	digest_init(digest);
+}
+
+/*
+ * Get types of the given mtree_digest.
+ */
+int
+mtree_digest_get_types(struct mtree_digest *digest)
+{
+
+	assert(digest != NULL);
+
+	return (digest->types);
+}
+
+/*
+ * Get all the supported digest types.
+ */
+int
+mtree_digest_get_available_types(void)
+{
+	int types = 0;
+
+#ifdef MTREE_MD5_INIT
+	types |= MTREE_DIGEST_MD5;
+#endif
+#ifdef MTREE_SHA1_INIT
+	types |= MTREE_DIGEST_SHA1;
+#endif
+#ifdef MTREE_SHA256_INIT
+	types |= MTREE_DIGEST_SHA256;
+#endif
+#ifdef MTREE_SHA384_INIT
+	types |= MTREE_DIGEST_SHA384;
+#endif
+#ifdef MTREE_SHA512_INIT
+	types |= MTREE_DIGEST_SHA512;
+#endif
+#ifdef MTREE_RMD160_INIT
+	types |= MTREE_DIGEST_RMD160;
+#endif
+	return (types);
+}
+
+/*
+ * Update the digest with the given data.
+ */
+void
+mtree_digest_update(struct mtree_digest *digest, const unsigned char *data,
+    size_t len)
+{
+
+	assert(digest != NULL);
+
+	if (len == 0)
+		return;
+
+	assert(data != NULL);
+#ifdef MTREE_MD5_UPDATE
+	if (digest->types & MTREE_DIGEST_MD5 &&
+	    digest->result.md5 == NULL)
+		MTREE_MD5_UPDATE(&digest->ctx.md5, data, len);
+#endif
+#ifdef MTREE_SHA1_UPDATE
+	if (digest->types & MTREE_DIGEST_SHA1 &&
+	    digest->result.sha1 == NULL)
+		MTREE_SHA1_UPDATE(&digest->ctx.sha1, data, len);
+#endif
+#ifdef MTREE_SHA256_UPDATE
+	if (digest->types & MTREE_DIGEST_SHA256 &&
+	    digest->result.sha256 == NULL)
+		MTREE_SHA256_UPDATE(&digest->ctx.sha256, data, len);
+#endif
+#ifdef MTREE_SHA384_UPDATE
+	if (digest->types & MTREE_DIGEST_SHA384 &&
+	    digest->result.sha384 == NULL)
+		MTREE_SHA384_UPDATE(&digest->ctx.sha384, data, len);
+#endif
+#ifdef MTREE_SHA512_UPDATE
+	if (digest->types & MTREE_DIGEST_SHA512 &&
+	    digest->result.sha512 == NULL)
+		MTREE_SHA512_UPDATE(&digest->ctx.sha512, data, len);
+#endif
+#ifdef MTREE_RMD160_UPDATE
+	if (digest->types & MTREE_DIGEST_RMD160 &&
+	    digest->result.rmd160 == NULL)
+		MTREE_RMD160_UPDATE(&digest->ctx.rmd160, data, len);
+#endif
+}
+
+/*
+ * Convert the byte sequence to a string of hexadecimal numbers.
+ */
+static char *
+digest_result(unsigned char *digest, size_t len)
+{
+	static const char hex[] = "0123456789abcdef";
+	char	*s;
+	size_t	 i;
+
+	s = malloc(2 * len + 1);
+	if (s != NULL) {
+		for (i = 0; i < len; i++) {
+			s[i + i] = hex[digest[i] >> 4];
+			s[i + i + 1] = hex[digest[i] & 0x0F];
+		}
+		s[i + i] = '\0';
+	}
+	return (s);
+}
+
+/*
+ * Get the resulting digest of the given type.
+ */
+const char *
+mtree_digest_get_result(struct mtree_digest *digest, int type)
+{
+	unsigned char bytes[DIGEST_SIZE_MAX];
+
+	assert(digest != NULL);
+
+	switch (type) {
+#ifdef MTREE_MD5_FINAL
+	case MTREE_DIGEST_MD5:
+		if (digest->result.md5 == NULL) {
+			MTREE_MD5_FINAL(&digest->ctx.md5, bytes);
+			digest->result.md5 = digest_result(bytes,
+			    DIGEST_SIZE_MD5);
+		}
+		return (digest->result.md5);
+#endif
+#ifdef MTREE_SHA1_FINAL
+	case MTREE_DIGEST_SHA1:
+		if (digest->result.sha1 == NULL) {
+			MTREE_SHA1_FINAL(&digest->ctx.sha1, bytes);
+			digest->result.sha1 = digest_result(bytes,
+			    DIGEST_SIZE_SHA1);
+		}
+		return (digest->result.sha1);
+#endif
+#ifdef MTREE_SHA256_FINAL
+	case MTREE_DIGEST_SHA256:
+		if (digest->result.sha256 == NULL) {
+			MTREE_SHA256_FINAL(&digest->ctx.sha256, bytes);
+			digest->result.sha256 = digest_result(bytes,
+			    DIGEST_SIZE_SHA256);
+		}
+		return (digest->result.sha256);
+#endif
+#ifdef MTREE_SHA384_FINAL
+	case MTREE_DIGEST_SHA384:
+		if (digest->result.sha384 == NULL) {
+			MTREE_SHA384_FINAL(&digest->ctx.sha384, bytes);
+			digest->result.sha384 = digest_result(bytes,
+			    DIGEST_SIZE_SHA384);
+		}
+		return (digest->result.sha384);
+#endif
+#ifdef MTREE_SHA512_FINAL
+	case MTREE_DIGEST_SHA512:
+		if (digest->result.sha512 == NULL) {
+			MTREE_SHA512_FINAL(&digest->ctx.sha512, bytes);
+			digest->result.sha512 = digest_result(bytes,
+			    DIGEST_SIZE_SHA512);
+		}
+		return (digest->result.sha512);
+#endif
+#ifdef MTREE_RMD160_FINAL
+	case MTREE_DIGEST_RMD160:
+		if (digest->result.rmd160 == NULL) {
+			MTREE_RMD160_FINAL(&digest->ctx.rmd160, bytes);
+			digest->result.rmd160 = digest_result(bytes,
+			    DIGEST_SIZE_RMD160);
+		}
+		return (digest->result.rmd160);
+#endif
+	default:
+		errno = EINVAL;
+		return (NULL);
+	}
+}
+
+/*
+ * Calculate digest of bytes read from the given file descriptor.
+ */
+char *
+mtree_digest_fd(int type, int fd)
+{
+	struct mtree_digest	*digest;
+	unsigned char		 buf[16 * 1024];
+	char			*result;
+	int			 n;
+
+	/*
+	 * Make sure the requested type is available and that only one
+	 * type is selected.
+	 */
+	if (type == 0 ||
+	    (type & ~(1 << (ffs(type) - 1))) != 0 ||
+	    (type & mtree_digest_get_available_types()) == 0) {
+		errno = EINVAL;
+		return (NULL);
+	}
+	digest = mtree_digest_create(type);
+	if (digest == NULL)
+		return (NULL);
+
+	while ((n = read(fd, buf, sizeof(buf))) > 0)
+		mtree_digest_update(digest, buf, n);
+
+	result = NULL;
+	if (n == 0) {
+		const char *r;
+
+		r = mtree_digest_get_result(digest, type);
+		if (r != NULL)
+			result = strdup(r);
+	}
+	mtree_digest_free(digest);
+	return (result);
+}
+
+/*
+ * Calculate digest of bytes read from the given file path.
+ */
+char *
+mtree_digest_path(int type, const char *path)
+{
+	char	*result;
+	int	 fd;
 
 	assert(path != NULL);
-	assert(crc != NULL);
 
-	fd = open(path, O_RDONLY);
-	if (fd == -1)
-		return (-1);
-
-	if (crc32(fd, crc, crc_total) != 0) {
-		int err = errno;
-
-		close(fd);
-		errno = err;
-		return (-1);
+	/*
+	 * Make sure type is supported, the "FILE" function may not be
+	 * available for all supported types, but "INIT" has to be.
+	 */
+	switch (type) {
+#ifdef MTREE_MD5_INIT
+	case MTREE_DIGEST_MD5:
+#ifdef MTREE_MD5_FILE
+		return (MTREE_MD5_FILE(path));
+#endif
+		break;
+#endif
+#ifdef MTREE_SHA1_INIT
+	case MTREE_DIGEST_SHA1:
+#ifdef MTREE_SHA1_FILE
+		return (MTREE_SHA1_FILE(path));
+#endif
+		break;
+#endif
+#ifdef MTREE_SHA256_INIT
+	case MTREE_DIGEST_SHA256:
+#ifdef MTREE_SHA256_FILE
+		return (MTREE_SHA256_FILE(path));
+#endif
+		break;
+#endif
+#ifdef MTREE_SHA384_INIT
+	case MTREE_DIGEST_SHA384:
+#ifdef MTREE_SHA384_FILE
+		return (MTREE_SHA384_FILE(path));
+#endif
+		break;
+#endif
+#ifdef MTREE_SHA512_INIT
+	case MTREE_DIGEST_SHA512:
+#ifdef MTREE_SHA512_FILE
+		return (MTREE_SHA512_FILE(path));
+#endif
+		break;
+#endif
+#ifdef MTREE_RMD160_INIT
+	case MTREE_DIGEST_RMD160:
+#ifdef MTREE_RMD160_FILE
+		return (MTREE_RMD160_FILE(path));
+#endif
+		break;
+#endif
+	default:
+		errno = EINVAL;
+		return (NULL);
 	}
-	return (0);
+	/*
+	 * Digest type is supported, but there is no "FILE" function available
+	 * for the type.
+	 */
+	result = NULL;
+	fd = open(path, O_RDONLY);
+	if (fd != -1) {
+		result = mtree_digest_fd(type, fd);
+		if (result == NULL) {
+			int err = errno;
+
+			close(fd);
+			errno = err;
+		} else
+			close(fd);
+	}
+	return (result);
 }

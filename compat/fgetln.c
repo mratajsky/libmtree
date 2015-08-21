@@ -27,6 +27,8 @@
 
 #include "config.h"
 
+typedef int dont_warn_me_about_empty_translation_unit;
+
 #ifndef HAVE_FGETLN
 #include <stdio.h>
 #include <sys/types.h>
