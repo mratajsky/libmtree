@@ -385,14 +385,8 @@ read_keyword(struct mtree_reader *r, char *s, struct mtree_entry_data *data, int
 			break;
 		}
 		data->type = mtree_entry_type_parse(value);
-		if (data->type == MTREE_ENTRY_UNKNOWN) {
-			/*
-			 * The string `unknown' is parsed to the same constant
-			 * as an invalid string, but `unknown' is not allowed
-			 * as an entry type.
-			 */
+		if (data->type == MTREE_ENTRY_UNKNOWN)
 			errno = EINVAL;
-		}
 		break;
 	case MTREE_KEYWORD_UID:
 		if (value == NULL) {

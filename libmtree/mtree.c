@@ -90,9 +90,9 @@ static const struct entry_type_map {
 	{ "file",		MTREE_ENTRY_FILE,	S_IFREG },
 	{ "link",		MTREE_ENTRY_LINK,	S_IFLNK },
 	{ "socket",		MTREE_ENTRY_SOCKET,	S_IFSOCK },
-	{ "unknown",		MTREE_ENTRY_UNKNOWN,	0 }
+	{ NULL,			MTREE_ENTRY_UNKNOWN,	0 }
 };
-#define N_ENTRY_TYPES		(__arraycount(entry_types))
+#define N_ENTRY_TYPES		(__arraycount(entry_types) - 1)
 
 static int
 compare_entry_name(const void *key, const void *map)
