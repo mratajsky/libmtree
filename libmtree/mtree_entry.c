@@ -705,6 +705,17 @@ set_keywords(struct mtree_entry *entry, const struct stat *st, uint64_t kset,
 		    MTREE_KEYWORD_GID);
 	else
 		TRY_CLR_KEYWORD(MTREE_KEYWORD_GID);
+	if (kset & MTREE_KEYWORD_GNAME) {
+		s = mtree_gname_from_gid(st->st_gid);
+		if (s != NULL)
+			SET_KEYWORD_STR(entry, entry->data.gname, s,
+			    MTREE_KEYWORD_GNAME);
+		else
+			CLR_KEYWORD_STR(entry, entry->data.gname,
+			    MTREE_KEYWORD_GNAME);
+	} else
+		TRY_CLR_KEYWORD_STR(entry->data.gname, MTREE_KEYWORD_GNAME);
+
 	if (kset & MTREE_KEYWORD_INODE)
 		SET_KEYWORD_VAL(entry, entry->data.st_ino, st->st_ino,
 		    MTREE_KEYWORD_INODE);
@@ -747,21 +758,20 @@ set_keywords(struct mtree_entry *entry, const struct stat *st, uint64_t kset,
 		    MTREE_KEYWORD_UID);
 	else
 		TRY_CLR_KEYWORD(MTREE_KEYWORD_UID);
+	if (kset & MTREE_KEYWORD_UNAME) {
+		s = mtree_uname_from_uid(st->st_uid);
+		if (s != NULL)
+			SET_KEYWORD_STR(entry, entry->data.uname, s,
+			    MTREE_KEYWORD_UNAME);
+		else
+			CLR_KEYWORD_STR(entry, entry->data.uname,
+			    MTREE_KEYWORD_UNAME);
+	} else
+		TRY_CLR_KEYWORD_STR(entry->data.uname, MTREE_KEYWORD_UNAME);
 
 	/*
 	 * Set/unset non-stat keywords.
 	 */
-	if (kset & MTREE_KEYWORD_GNAME) {
-		s = mtree_gname_from_gid(st->st_gid);
-		if (s != NULL)
-			SET_KEYWORD_STR(entry, entry->data.gname, s,
-			    MTREE_KEYWORD_GNAME);
-		else
-			CLR_KEYWORD_STR(entry, entry->data.gname,
-			    MTREE_KEYWORD_GNAME);
-	} else
-		TRY_CLR_KEYWORD_STR(entry->data.gname, MTREE_KEYWORD_GNAME);
-
 	if (kset & MTREE_KEYWORD_LINK) {
 		if (entry->orig != NULL)
 			s = mtree_readlink(entry->orig);
@@ -775,17 +785,6 @@ set_keywords(struct mtree_entry *entry, const struct stat *st, uint64_t kset,
 			    MTREE_KEYWORD_LINK);
 	} else
 		TRY_CLR_KEYWORD_STR(entry->data.link, MTREE_KEYWORD_LINK);
-
-	if (kset & MTREE_KEYWORD_UNAME) {
-		s = mtree_uname_from_uid(st->st_uid);
-		if (s != NULL)
-			SET_KEYWORD_STR(entry, entry->data.uname, s,
-			    MTREE_KEYWORD_UNAME);
-		else
-			CLR_KEYWORD_STR(entry, entry->data.uname,
-			    MTREE_KEYWORD_UNAME);
-	} else
-		TRY_CLR_KEYWORD_STR(entry->data.uname, MTREE_KEYWORD_UNAME);
 
 	/*
 	 * Set/unset cksum and digests.

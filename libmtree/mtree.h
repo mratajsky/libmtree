@@ -292,6 +292,7 @@ int			 mtree_digest_get_available_types(void);
 #define MTREE_KEYWORD_MASK_STAT		(MTREE_KEYWORD_DEVICE |		\
 					 MTREE_KEYWORD_FLAGS |		\
 					 MTREE_KEYWORD_GID |		\
+					 MTREE_KEYWORD_GNAME |		\
 					 MTREE_KEYWORD_INODE |		\
 					 MTREE_KEYWORD_LINK |		\
 					 MTREE_KEYWORD_MODE |		\
@@ -299,7 +300,8 @@ int			 mtree_digest_get_available_types(void);
 					 MTREE_KEYWORD_SIZE |		\
 					 MTREE_KEYWORD_TIME |		\
 					 MTREE_KEYWORD_TYPE |		\
-					 MTREE_KEYWORD_UID)
+					 MTREE_KEYWORD_UID |		\
+					 MTREE_KEYWORD_UNAME)
 
 /* Spec entry types. */
 typedef enum {
