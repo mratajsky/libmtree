@@ -65,6 +65,7 @@ struct mtree_spec;
 struct mtree_spec_diff;
 struct mtree_timespec;
 struct mtree_trie;
+struct mtree_trie_node;
 struct mtree_reader;
 struct mtree_writer;
 
@@ -217,12 +218,8 @@ typedef void (*mtree_trie_free_fn)(void *);
  * struct mtree_trie
  */
 struct mtree_trie {
-	void			*item;
-	char			*key;
-	size_t			 key_len;
-	size_t			 bit;
-	struct mtree_trie	*left;
-	struct mtree_trie	*right;
+	struct mtree_trie_node	*top;
+	mtree_trie_free_fn	 free_fn;
 };
 
 /*
@@ -300,8 +297,8 @@ int			 mtree_writer_write_entries(struct mtree_writer *w,
 			    struct mtree_entry *entries);
 
 /* mtree_trie.c */
-struct mtree_trie	*mtree_trie_create(void);
-void			 mtree_trie_free(struct mtree_trie *trie, mtree_trie_free_fn f);
+struct mtree_trie	*mtree_trie_create(mtree_trie_free_fn f);
+void			 mtree_trie_free(struct mtree_trie *trie);
 int			 mtree_trie_insert(struct mtree_trie *trie, const char *key,
 			    void *item);
 void			*mtree_trie_find(struct mtree_trie *trie, const char *key);

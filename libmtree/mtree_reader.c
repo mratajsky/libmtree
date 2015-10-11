@@ -100,7 +100,7 @@ mtree_reader_reset(struct mtree_reader *r)
 	assert(r != NULL);
 
 	if (r->skip_trie != NULL) {
-		mtree_trie_free(r->skip_trie, NULL);
+		mtree_trie_free(r->skip_trie);
 		r->skip_trie = NULL;
 	}
 	if (r->entries != NULL) {
@@ -763,7 +763,7 @@ read_spec(struct mtree_reader *r, char *s)
 				struct mtree_entry *found, *start;
 
 				if (r->skip_trie == NULL) {
-					r->skip_trie = mtree_trie_create();
+					r->skip_trie = mtree_trie_create(NULL);
 					if (r->skip_trie == NULL) {
 						mtree_reader_set_error(r, errno,
 						    NULL);

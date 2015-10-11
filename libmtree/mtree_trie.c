@@ -31,22 +31,40 @@
 #include "mtree.h"
 #include "mtree_private.h"
 
+/*
+ * mtree_trie_node
+ */
+struct mtree_trie_node {
+	void			*item;
+	char			*key;
+	size_t			 key_len;
+	size_t			 bit;
+	struct mtree_trie_node	*left;
+	struct mtree_trie_node	*right;
+};
+
+static struct mtree_trie_node *create_node(const char *key, void *item);
+
 struct mtree_trie *
-mtree_trie_create(void)
+mtree_trie_create(mtree_trie_free_fn f)
 {
 	struct mtree_trie *trie;
 
-	trie = calloc(1, sizeof(struct mtree_trie));
+	trie = malloc(sizeof(struct mtree_trie));
 	if (trie == NULL)
 		return (NULL);
-	trie->key   = "";
-	trie->left  = trie;
-	trie->right = trie;
+	trie->top = create_node(NULL, NULL);
+	if (trie->top == NULL) {
+		free(trie);
+		return (NULL);
+	}
+	trie->free_fn  = f;
+	trie->top->key = "";
 	return (trie);
 }
 
 static void
-free_nodes(struct mtree_trie *u, mtree_trie_free_fn f)
+free_nodes(struct mtree_trie_node *u, mtree_trie_free_fn f)
 {
 
 	if (u->left != NULL && u->left->bit > u->bit)
@@ -61,32 +79,34 @@ free_nodes(struct mtree_trie *u, mtree_trie_free_fn f)
 }
 
 void
-mtree_trie_free(struct mtree_trie *trie, mtree_trie_free_fn f)
+mtree_trie_free(struct mtree_trie *trie)
 {
 
 	assert(trie != NULL);
 
-	if (trie->left != trie)
-		free_nodes(trie->left, f);
+	if (trie->top->left != trie->top)
+		free_nodes(trie->top->left, trie->free_fn);
 	free(trie);
 }
 
-static struct mtree_trie *
+static struct mtree_trie_node *
 create_node(const char *key, void *item)
 {
-	struct mtree_trie *u;
+	struct mtree_trie_node *u;
 
-	u = mtree_trie_create();
+	u = calloc(1, sizeof(struct mtree_trie_node));
 	if (u == NULL)
 		return (NULL);
-
-	u->item    = item;
-	u->key_len = strlen(key);
-	u->key     = strdup(key);
-	if (u->key == NULL) {
-		mtree_trie_free(u, NULL);
-		return (NULL);
+	if (key != NULL) {
+		u->key = strdup(key);
+		if (u->key == NULL) {
+			free(u);
+			return (NULL);
+		}
+		u->key_len = strlen(key);
 	}
+	u->item = item;
+	u->left = u->right = u;
 	return (u);
 }
 
@@ -98,17 +118,17 @@ create_node(const char *key, void *item)
 		? 0						\
 		: (((key)[(n) >> 3] >> (7 - (n & 7))) & 1))
 
-static struct mtree_trie *
+static struct mtree_trie_node *
 find_node(struct mtree_trie *trie, const char *key)
 {
-	struct mtree_trie	*u;
+	struct mtree_trie_node	*u;
 	size_t			 len;
 	size_t			 d;
 
-	if (trie->left == trie)
+	if (trie->top->left == trie->top)
 		return (NULL);
 
-	u   = trie->left;
+	u   = trie->top->left;
 	len = strlen(key);
 	do {
 		d = u->bit;
@@ -118,8 +138,9 @@ find_node(struct mtree_trie *trie, const char *key)
 	return (u);
 }
 
-static struct mtree_trie *
-insert_node(struct mtree_trie *u, struct mtree_trie *node, struct mtree_trie *prev)
+static struct mtree_trie_node *
+insert_node(struct mtree_trie_node *u, struct mtree_trie_node *node,
+    struct mtree_trie_node *prev)
 {
 
 	if (u->bit >= node->bit || u->bit <= prev->bit) {
@@ -143,8 +164,8 @@ insert_node(struct mtree_trie *u, struct mtree_trie *node, struct mtree_trie *pr
 int
 mtree_trie_insert(struct mtree_trie *trie, const char *key, void *item)
 {
-	struct mtree_trie	*u;
-	struct mtree_trie	*node;
+	struct mtree_trie_node	*u;
+	struct mtree_trie_node	*node;
 	size_t			 bit;
 
 	assert(trie != NULL);
@@ -156,6 +177,8 @@ mtree_trie_insert(struct mtree_trie *trie, const char *key, void *item)
 		/*
 		 * Already in the trie, just update the item.
 		 */
+		if (trie->free_fn != NULL && u->item != NULL)
+			trie->free_fn(u->item);
 		u->item = item;
 		return (1);
 	}
@@ -168,10 +191,9 @@ mtree_trie_insert(struct mtree_trie *trie, const char *key, void *item)
 		 */
 		for (bit = 0; KEY_BIT(key, node->key_len, bit) == 0; bit++)
 			;
-		node->bit   = bit;
-		node->left  = trie;
-		node->right = node;
-		trie->left  = node;
+		node->bit  = bit;
+		node->left = trie->top;
+		trie->top->left = node;
 	} else {
 		for (bit = 0;; bit++) {
 			int kbit = KEY_BIT(key, node->key_len, bit);
@@ -185,13 +207,13 @@ mtree_trie_insert(struct mtree_trie *trie, const char *key, void *item)
 				break;
 			}
 		}
-		trie->left = insert_node(trie->left, node, trie);
+		trie->top->left = insert_node(trie->top->left, node, trie->top);
 	}
 	return (0);
 }
 
 static size_t
-count_nodes(struct mtree_trie *u)
+count_nodes(struct mtree_trie_node *u)
 {
 	size_t count;
 
@@ -212,7 +234,7 @@ mtree_trie_count(struct mtree_trie *trie)
 
 	assert(trie != NULL);
 
-	return (trie->left == trie ? 0 : count_nodes(trie->left));
+	return (trie->top->left == trie->top ? 0 : count_nodes(trie->top->left));
 }
 
 /*
@@ -221,7 +243,7 @@ mtree_trie_count(struct mtree_trie *trie)
 void *
 mtree_trie_find(struct mtree_trie *trie, const char *key)
 {
-	struct mtree_trie *u;
+	struct mtree_trie_node *u;
 
 	assert(trie != NULL);
 	assert(key != NULL && *key != '\0');

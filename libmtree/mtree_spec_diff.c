@@ -87,7 +87,7 @@ mtree_spec_diff_create(struct mtree_spec *spec1, struct mtree_spec *spec2,
 	 * This has a side-effect of "merging" the list by replacing former
 	 * entries with later ones with the same path.
 	 */
-	s2trie = mtree_trie_create();
+	s2trie = mtree_trie_create(NULL);
 	if (s2trie == NULL)
 		goto err;
 	e2 = sd->s2only;
@@ -149,11 +149,11 @@ mtree_spec_diff_create(struct mtree_spec *spec1, struct mtree_spec *spec2,
 		}
 		e1 = prev;
 	}
-	mtree_trie_free(s2trie, NULL);
+	mtree_trie_free(s2trie);
 	return (sd);
 err:
 	if (s2trie != NULL)
-		mtree_trie_free(s2trie, NULL);
+		mtree_trie_free(s2trie);
 
 	mtree_spec_diff_free(sd);
 	return (NULL);

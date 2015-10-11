@@ -1167,7 +1167,7 @@ merge_entries(struct mtree_entry *merged, struct mtree_entry *head,
 	struct mtree_entry	*entry, *next, *found;
 	struct mtree_trie	*trie;
 
-	trie = mtree_trie_create();
+	trie = mtree_trie_create(NULL);
 	if (trie == NULL)
 		return (NULL);
 	/*
@@ -1178,7 +1178,7 @@ merge_entries(struct mtree_entry *merged, struct mtree_entry *head,
 	list = merged;
 	while (merged != NULL) {
 		if (mtree_trie_insert(trie, merged->path, merged) == -1) {
-			mtree_trie_free(trie, NULL);
+			mtree_trie_free(trie);
 			return (NULL);
 		}
 		merged = merged->next;
@@ -1210,7 +1210,7 @@ merge_entries(struct mtree_entry *merged, struct mtree_entry *head,
 					*mismerged = list;
 				}
 				errno = EEXIST;
-				mtree_trie_free(trie, NULL);
+				mtree_trie_free(trie);
 				return (NULL);
 			}
 			/*
@@ -1225,12 +1225,12 @@ merge_entries(struct mtree_entry *merged, struct mtree_entry *head,
 			head = mtree_entry_unlink(head, entry);
 			mtree_entry_free(entry);
 		} else if (mtree_trie_insert(trie, entry->path, entry) == -1) {
-			mtree_trie_free(trie, NULL);
+			mtree_trie_free(trie);
 			return (NULL);
 		}
 		entry = next;
 	}
-	mtree_trie_free(trie, NULL);
+	mtree_trie_free(trie);
 
 	return (mtree_entry_append(list, head));
 }
