@@ -41,10 +41,6 @@
 #include "mtree.h"
 #include "mtree_private.h"
 
-#define MAX_ERRSTR_LEN	1024
-
-#define	IS_DOT(nm)	((nm)[0] == '.' && (nm)[1] == '\0')
-#define	IS_DOTDOT(nm)	((nm)[0] == '.' && (nm)[1] == '.' && (nm)[2] == '\0')
 
 #ifndef TIME_T_MIN
 #define TIME_T_MIN	(0 < (time_t)-1 ? (time_t)0 \
@@ -1406,7 +1402,7 @@ void
 mtree_reader_set_error(struct mtree_reader *r, int err, const char *format, ...)
 {
 	va_list args;
-	char	buf[MAX_ERRSTR_LEN];
+	char	buf[MAX_ERRSTR_LENGTH];
 
 	assert(r != NULL);
 
@@ -1418,7 +1414,7 @@ mtree_reader_set_error(struct mtree_reader *r, int err, const char *format, ...)
 
 		mtree_copy_string(&r->error, buf);
 	} else {
-		char errstr[MAX_ERRSTR_LEN];
+		char errstr[MAX_ERRSTR_LENGTH];
 
 		strerror_r(errno, errstr, sizeof(errstr));
 		mtree_copy_string(&r->error, errstr);

@@ -39,8 +39,6 @@
 #include "mtree.h"
 #include "mtree_private.h"
 
-#define	IS_DOT(nm)	((nm)[0] == '.' && (nm)[1] == '\0')
-
 #define	INDENTNAMELEN	15
 #define	INDENTLINELEN	80
 

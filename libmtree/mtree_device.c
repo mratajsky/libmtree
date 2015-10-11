@@ -56,8 +56,6 @@
 #define ERR_PACK_SUBUNIT	(-4)
 #define ERR_PACK_NFIELDS	(-5)
 
-#define MAX_ERRSTR_LEN		128
-
 /*
  * Create a new mtree_device.
  */
@@ -261,7 +259,7 @@ mtree_device_get_fields(struct mtree_device *dev)
 static void
 set_error(struct mtree_device *dev, int err, const char *format, ...)
 {
-	char	errstr[MAX_ERRSTR_LEN];
+	char	errstr[MAX_ERRSTR_LENGTH];
 	va_list	args;
 
 	errno = dev->err = err;
@@ -271,7 +269,7 @@ set_error(struct mtree_device *dev, int err, const char *format, ...)
 		return;
 	}
 	va_start(args, format);
-	vsnprintf(errstr, MAX_ERRSTR_LEN, format, args);
+	vsnprintf(errstr, sizeof(errstr), format, args);
 	va_end(args);
 
 	mtree_copy_string(&dev->errstr, errstr);
@@ -762,7 +760,7 @@ mtree_device_parse(struct mtree_device *dev, const char *s)
 const char *
 mtree_device_get_error(struct mtree_device *dev)
 {
-	char errstr[MAX_ERRSTR_LEN];
+	char errstr[MAX_ERRSTR_LENGTH];
 
 	assert(dev != NULL);
 

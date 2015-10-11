@@ -36,17 +36,17 @@
 
 #include "compat.h"
 
-#define MAX_LINE_LENGTH			4096
-#define MODE_MASK			(S_ISUID | S_ISGID | S_ISVTX |	\
-					 S_IRWXU | S_IRWXG | S_IRWXO)
-#define TRIE_ITEM			((void *) (size_t) 1)
+#define	IS_DOT(nm)		((nm)[0] == '.' && (nm)[1] == '\0')
+#define	IS_DOTDOT(nm)		((nm)[0] == '.' && (nm)[1] == '.' && (nm)[2] == '\0')
 
-#ifndef MIN
-#define MIN(a, b)			((a) < (b) ? (a) : (b))
-#endif
-#ifndef MAX
-#define MAX(a, b)			((a) > (b) ? (a) : (b))
-#endif
+#define MAX_ERRSTR_LENGTH	1024
+#define MAX_LINE_LENGTH		4096
+#define MODE_MASK		(S_ISUID|S_ISGID|S_ISVTX|S_IRWXU|S_IRWXG|S_IRWXO)
+
+/*
+ * Universal trie item, used when only the presence of a key matters.
+ */
+#define TRIE_ITEM		((void *) (size_t) 1)
 
 #ifdef MTREE_WARN
 #define WARN(...) do {			\
