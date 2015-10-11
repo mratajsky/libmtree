@@ -30,8 +30,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
 
 #include "compat.h"
 

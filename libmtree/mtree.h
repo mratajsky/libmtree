@@ -30,8 +30,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 struct mtree_cksum;
 struct mtree_device;
