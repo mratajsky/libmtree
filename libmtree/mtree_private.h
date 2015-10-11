@@ -316,7 +316,7 @@ int			 mtree_cleanup_path(const char *path, char **ppart,
 int			 mtree_copy_string(char **dst, const char *src);
 char			*mtree_getcwd(void);
 char			*mtree_gname_from_gid(gid_t gid);
-char			*mtree_uname_from_uid(gid_t gid);
+char			*mtree_uname_from_uid(uid_t uid);
 char			*mtree_readlink(const char *path);
 char			*mtree_vispath(const char *path, int style);
 
