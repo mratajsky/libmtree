@@ -116,7 +116,7 @@ mtree_spec_diff_create(struct mtree_spec *spec1, struct mtree_spec *spec2,
 			 * present in the 1st list and the ones in s2only only
 			 * in the 2nd list.
 			 */
-		        sd->s1only = mtree_entry_unlink(sd->s1only, e1);
+			sd->s1only = mtree_entry_unlink(sd->s1only, e1);
 			sd->s2only = mtree_entry_unlink(sd->s2only, e2);
 
 			if (options & MTREE_SPEC_DIFF_MATCH_EXTRA_KEYWORDS) {
@@ -136,9 +136,11 @@ mtree_spec_diff_create(struct mtree_spec *spec1, struct mtree_spec *spec2,
 			} else {
 				/* Different. */
 				mtree_entry_set_keywords(e1,
-				    e1->data.keywords & kdiff, 0);
+				    e1->data.keywords & kdiff,
+				    MTREE_ENTRY_REMOVE_EXCLUDED);
 				mtree_entry_set_keywords(e2,
-				    e2->data.keywords & kdiff, 0);
+				    e2->data.keywords & kdiff,
+				    MTREE_ENTRY_REMOVE_EXCLUDED);
 				sd->diff = mtree_entry_prepend(sd->diff, e2);
 				sd->diff = mtree_entry_prepend(sd->diff, e1);
 			}
