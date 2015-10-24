@@ -437,8 +437,9 @@ mtree_vispath(const char *path, int cstyle)
 		style = VIS_CSTYLE;
 	else
 		style = VIS_OCTAL;
-	if (strsnvis(encoded, len, path, style, vis_extra) == -1)
+	if (strsnvis(encoded, len, path, style, vis_extra) == -1) {
+		free(encoded);
 		return (NULL);
-
+	}
 	return (encoded);
 }

@@ -998,8 +998,10 @@ read_path(struct mtree_reader *r, const char *path, struct mtree_entry **entries
 		if (entry == NULL)
 			return (-1);
 		ret = read_path_file(r, entry, &skip, &skip_children);
-		if (ret == -1)
+		if (ret == -1) {
+			mtree_entry_free(entry);
 			return (-1);
+		}
 		/*
 		 * If the path doesn't point to a directory, simply store
 		 * the single entry.

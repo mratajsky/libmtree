@@ -90,14 +90,11 @@ mtree_entry_create(const char *path)
 	if (mtree_cleanup_path(path, &p, &n) != 0)
 		return (NULL);
 	entry = mtree_entry_create_empty();
-	if (entry == NULL) {
+	if (entry == NULL || (entry->orig = strdup(path)) == NULL) {
 		free(p);
 		free(n);
-		return (NULL);
-	}
-	entry->orig = strdup(path);
-	if (entry->orig == NULL) {
-		mtree_entry_free(entry);
+		if (entry != NULL)
+			mtree_entry_free(entry);
 		return (NULL);
 	}
 	entry->path = p;
