@@ -109,8 +109,11 @@ mtree_entry_create(const char *path)
 struct mtree_entry *
 mtree_entry_create_empty(void)
 {
+	struct mtree_entry *entry;
 
-	return (calloc(1, sizeof(struct mtree_entry)));
+	entry = calloc(1, sizeof(struct mtree_entry));
+	entry->data.type = MTREE_ENTRY_UNKNOWN;
+	return (entry);
 }
 
 /*
