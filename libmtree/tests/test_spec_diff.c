@@ -24,9 +24,7 @@
  * SUCH DAMAGE.
  */
 
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
+#include <inttypes.h>
 
 #include "test.h"
 
@@ -34,7 +32,7 @@
 #include "libmtree/mtree_private.h"
 
 static void
-test_diff(void)
+test_spec_diff(void)
 {
 	struct mtree_entry	*e;
 	struct mtree_entry	*e1, *e2;
@@ -79,37 +77,37 @@ test_diff(void)
 	sd = mtree_spec_diff_create(spec1, spec2, MTREE_KEYWORD_MASK_ALL, 0);
 
 	s1only = mtree_spec_diff_get_spec1_only(sd);
-	TEST_ASSERT_VALCMP(mtree_entry_count(s1only), 1UL, "%zu");
+	TEST_ASSERT_VALCMP(mtree_entry_count(s1only), (size_t)1, "%zu");
 	TEST_ASSERT_STRCMP(mtree_entry_get_path(s1only), "./s1only");
 
 	s2only = mtree_spec_diff_get_spec2_only(sd);
-	TEST_ASSERT_VALCMP(mtree_entry_count(s2only), 1UL, "%zu");
+	TEST_ASSERT_VALCMP(mtree_entry_count(s2only), (size_t)1, "%zu");
 	TEST_ASSERT_STRCMP(mtree_entry_get_path(s2only), "./s2only");
 
 	/* No matching here as the first entry has an extra keywords. */
 	e = mtree_spec_diff_get_matching(sd);
-	TEST_ASSERT_VALCMP(mtree_entry_count(e), 0UL, "%zu");
+	TEST_ASSERT_VALCMP(mtree_entry_count(e), (size_t)0, "%zu");
 	e = mtree_spec_diff_get_different(sd);
-	TEST_ASSERT_VALCMP(mtree_entry_count(e), 4UL, "%zu");
+	TEST_ASSERT_VALCMP(mtree_entry_count(e), (size_t)4, "%zu");
 
 	/* Order should be preserved. */
 	TEST_ASSERT_STRCMP(mtree_entry_get_path(e), "./match");
 	TEST_ASSERT_VALCMP(mtree_entry_get_keywords(e),
-	    MTREE_KEYWORD_NOCHANGE, "%ld");
+	    (uint64_t)MTREE_KEYWORD_NOCHANGE, "0x%" PRIx64);
 	e = mtree_entry_get_next(e);
 	TEST_ASSERT_STRCMP(mtree_entry_get_path(e), "./match");
 	TEST_ASSERT_VALCMP(mtree_entry_get_keywords(e),
-	    0, "%ld");
+	    (uint64_t)0, "0x%" PRIx64);
 
 	e = mtree_entry_get_next(e);
 	TEST_ASSERT_STRCMP(mtree_entry_get_path(e), "./diff");
 	TEST_ASSERT_VALCMP(mtree_entry_get_keywords(e),
-	    MTREE_KEYWORD_TYPE, "%ld");
+	    (uint64_t)MTREE_KEYWORD_TYPE, "0x%" PRIx64);
 	TEST_ASSERT_VALCMP(mtree_entry_get_type(e), MTREE_ENTRY_BLOCK, "%x");
 	e = mtree_entry_get_next(e);
 	TEST_ASSERT_STRCMP(mtree_entry_get_path(e), "./diff");
 	TEST_ASSERT_VALCMP(mtree_entry_get_keywords(e),
-	    MTREE_KEYWORD_TYPE, "%ld");
+	    (uint64_t)MTREE_KEYWORD_TYPE, "0x%" PRIx64);
 	TEST_ASSERT_VALCMP(mtree_entry_get_type(e), MTREE_ENTRY_CHAR, "%x");
 
 	mtree_spec_diff_free(sd);
@@ -119,31 +117,31 @@ test_diff(void)
 	    MTREE_SPEC_DIFF_MATCH_EXTRA_KEYWORDS);
 
 	s1only = mtree_spec_diff_get_spec1_only(sd);
-	TEST_ASSERT_VALCMP(mtree_entry_count(s1only), 1UL, "%zu");
+	TEST_ASSERT_VALCMP(mtree_entry_count(s1only), (size_t)1, "%zu");
 	TEST_ASSERT_STRCMP(mtree_entry_get_path(s1only), "./s1only");
 
 	s2only = mtree_spec_diff_get_spec2_only(sd);
-	TEST_ASSERT_VALCMP(mtree_entry_count(s2only), 1UL, "%zu");
+	TEST_ASSERT_VALCMP(mtree_entry_count(s2only), (size_t)1, "%zu");
 	TEST_ASSERT_STRCMP(mtree_entry_get_path(s2only), "./s2only");
 
 	e = mtree_spec_diff_get_matching(sd);
-	TEST_ASSERT_VALCMP(mtree_entry_count(e), 2UL, "%zu");
+	TEST_ASSERT_VALCMP(mtree_entry_count(e), (size_t)2, "%zu");
 	/* Order should be preserved. */
 	TEST_ASSERT_STRCMP(mtree_entry_get_path(e), "./match");
 	e = mtree_entry_get_next(e);
 	TEST_ASSERT_STRCMP(mtree_entry_get_path(e), "./match");
 
 	e = mtree_spec_diff_get_different(sd);
-	TEST_ASSERT_VALCMP(mtree_entry_count(e), 2UL, "%zu");
+	TEST_ASSERT_VALCMP(mtree_entry_count(e), (size_t)2, "%zu");
 
 	/* Order should be preserved. */
 	TEST_ASSERT_STRCMP(mtree_entry_get_path(e), "./diff");
 	TEST_ASSERT_VALCMP(mtree_entry_get_keywords(e),
-	    MTREE_KEYWORD_TYPE, "%ld");
+	    (uint64_t)MTREE_KEYWORD_TYPE, "0x%" PRIx64);
 	e = mtree_entry_get_next(e);
 	TEST_ASSERT_STRCMP(mtree_entry_get_path(e), "./diff");
 	TEST_ASSERT_VALCMP(mtree_entry_get_keywords(e),
-	    MTREE_KEYWORD_TYPE, "%ld");
+	    (uint64_t)MTREE_KEYWORD_TYPE, "0x%" PRIx64);
 
 	mtree_spec_diff_free(sd);
 	mtree_spec_free(spec1);
@@ -151,7 +149,7 @@ test_diff(void)
 }
 
 void
-test_spec_diff()
+test_mtree_spec_diff()
 {
-	TEST_RUN(test_diff, "mtree_spec_diff");
+	TEST_RUN(test_spec_diff, "mtree_spec_diff");
 }

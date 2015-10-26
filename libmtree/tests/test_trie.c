@@ -24,9 +24,7 @@
  * SUCH DAMAGE.
  */
 
-#include <errno.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "test.h"
 
@@ -36,7 +34,7 @@
 #define TRIE_STRINGS 10
 
 static void
-test_trie_strings(void)
+test_trie(void)
 {
 	struct mtree_trie	*trie;
 	char			 buf[16];
@@ -44,11 +42,11 @@ test_trie_strings(void)
 	size_t			 i;
 	int			 ret;
 
-	trie = mtree_trie_create();
+	trie = mtree_trie_create(free);
 	TEST_ASSERT_ERRNO(trie != NULL);
 	if (trie == NULL)
 		return;
-	TEST_ASSERT(mtree_trie_count(trie) == 0);
+	TEST_ASSERT_VALCMP(mtree_trie_count(trie), (size_t)0, "%zu");
 
 	for (i = 0; i < TRIE_STRINGS; i++) {
 		snprintf(buf, sizeof(buf), "%zu", i);
@@ -61,7 +59,7 @@ test_trie_strings(void)
 		if (ret != -1)
 			TEST_ASSERT_MSG(ret == 0, "key: %s", buf);
 	}
-	TEST_ASSERT(mtree_trie_count(trie) == TRIE_STRINGS);
+	TEST_ASSERT_VALCMP(mtree_trie_count(trie), (size_t)TRIE_STRINGS, "%zu");
 
 	/*
 	 * Make sure all the items can be found.
@@ -71,29 +69,30 @@ test_trie_strings(void)
 		if (i < TRIE_STRINGS) {
 			s = mtree_trie_find(trie, buf);
 			TEST_ASSERT_MSG(s != NULL, "key: %s", buf);
+			if (s != NULL)
+				TEST_ASSERT_STRCMP(s, buf);
 		} else
-			TEST_ASSERT(mtree_trie_find(trie, buf) == NULL);
+			TEST_ASSERT_VALCMP(mtree_trie_find(trie, buf), NULL, "%p");
 	}
 
 	/*
 	 * Replace the first item, the function returns 1 on successful
 	 * replacement.
 	 */
-	// XXX leaks the old 0
 	ret = mtree_trie_insert(trie, "0", strdup("xy"));
-	TEST_ASSERT_ERRNO(ret == 0 || ret == 1);
-	if (ret != 1) {
-		TEST_ASSERT(ret == 1);
+	TEST_ASSERT_ERRNO(ret != -1);
+	if (ret != -1) {
+		TEST_ASSERT_VALCMP(ret, 1, "%d");
 		s = mtree_trie_find(trie, "0");
 		TEST_ASSERT(s != NULL);
 		if (s != NULL)
 			TEST_ASSERT_STRCMP(s, "xy");
 	}
-	mtree_trie_free(trie, free);
+	mtree_trie_free(trie);
 }
 
 void
-test_trie()
+test_mtree_trie()
 {
-	TEST_RUN(test_trie_strings, "mtree_trie");
+	TEST_RUN(test_trie, "mtree_trie");
 }

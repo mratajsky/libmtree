@@ -24,9 +24,7 @@
  * SUCH DAMAGE.
  */
 
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
+#include <inttypes.h>
 #include <unistd.h>
 
 #include "test.h"
@@ -35,15 +33,15 @@
 #include "libmtree/mtree_file.h"
 #include "libmtree/mtree_private.h"
 
-#define CKSUM_TOTAL	710351703U
+#define CKSUM_TOTAL	(uint32_t)710351703U
 #define CKSUM_FILE	"/tmp/mtree-test-cksum"
 
 static struct test_cksum {
 	const char	*str;
 	uint32_t	 cksum;
 } cksums[] = {
-	{ "test data1", 32275850UL },
-	{ "test data2", 1929847385UL },
+	{ "test data1", 32275850U },
+	{ "test data2", 1929847385U },
 };
 
 static void
@@ -61,7 +59,7 @@ test_cksum_memory(void)
 	    strlen(cksums[0].str));
 
 	crc = mtree_cksum_get_result(cksum);
-	TEST_ASSERT_VALCMP(crc, cksums[0].cksum, "%u");
+	TEST_ASSERT_VALCMP(crc, cksums[0].cksum, "%" PRIu32);
 
 	/*
 	 * Use the result as intermediate value and include another piece
@@ -72,7 +70,7 @@ test_cksum_memory(void)
 	    strlen(cksums[1].str));
 
 	crc = mtree_cksum_get_result(cksum);
-	TEST_ASSERT_VALCMP(crc, CKSUM_TOTAL, "%u");
+	TEST_ASSERT_VALCMP(crc, CKSUM_TOTAL, "%" PRIu32);
 
 	mtree_cksum_free(cksum);
 }
@@ -123,7 +121,7 @@ test_cksum_file(void)
 }
 
 void
-test_cksum()
+test_mtree_cksum()
 {
 	TEST_RUN(test_cksum_memory, "mtree_cksum_memory");
 	TEST_RUN(test_cksum_file, "mtree_cksum_file");

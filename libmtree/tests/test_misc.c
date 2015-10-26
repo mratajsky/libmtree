@@ -24,9 +24,8 @@
  * SUCH DAMAGE.
  */
 
-#include <stdio.h>
+#include <inttypes.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "test.h"
 
@@ -76,11 +75,78 @@ test_basic(void)
 
 	TEST_ASSERT_VALCMP(mtree_keyword_parse("uname"),
 	    (uint64_t)MTREE_KEYWORD_UNAME, "0x%08lx");
-	TEST_ASSERT_VALCMP(mtree_keyword_parse("invalid"), 0, "0x%08llx");
+	TEST_ASSERT_VALCMP(mtree_keyword_parse("invalid"), (uint64_t)0, "0x%" PRIx64);
 
 	TEST_ASSERT_STRCMP(mtree_keyword_string(MTREE_KEYWORD_CONTENTS),
 	    "contents");
 	TEST_ASSERT_VALCMP(mtree_keyword_string(0xF), NULL, "%p");
+}
+
+static void
+test_atol()
+{
+	const char	*s;
+	const char	*endptr;
+	int64_t		 n;
+
+	/* Test conversions. */
+	s = "0123";
+	n = mtree_atol8(s, &endptr);
+	TEST_ASSERT_VALCMP(n, (int64_t)0123, "%" PRIo64);
+	TEST_ASSERT_VALCMP(strlen(endptr), (size_t)0, "%zu");
+	s = "01238";
+	n = mtree_atol8(s, &endptr);
+	TEST_ASSERT_VALCMP(n, (int64_t)0123, "%" PRIo64);
+	TEST_ASSERT_VALCMP(strlen(endptr), (size_t)1, "%zu");
+
+	s = "0123";
+	n = mtree_atol10(s, &endptr);
+	TEST_ASSERT_VALCMP(n, (int64_t)123, "%" PRId64);
+	TEST_ASSERT_VALCMP(strlen(endptr), (size_t)0, "%zu");
+	s = "0123a";
+	n = mtree_atol10(s, &endptr);
+	TEST_ASSERT_VALCMP(n, (int64_t)123, "%" PRId64);
+	TEST_ASSERT_VALCMP(strlen(endptr), (size_t)1, "%zu");
+
+	s = "abc";
+	n = mtree_atol16(s, &endptr);
+	TEST_ASSERT_VALCMP(n, (int64_t)0xabc, "0x%" PRIx64);
+	TEST_ASSERT_VALCMP(strlen(endptr), (size_t)0, "%zu");
+	s = "ABC";
+	n = mtree_atol16(s, &endptr);
+	TEST_ASSERT_VALCMP(n, (int64_t)0xabc, "0x%" PRIx64);
+	TEST_ASSERT_VALCMP(strlen(endptr), (size_t)0, "%zu");
+
+	s = "123";
+	n = mtree_atol(s, &endptr);
+	TEST_ASSERT_VALCMP(n, (int64_t)123, "%" PRId64);
+	TEST_ASSERT_VALCMP(strlen(endptr), (size_t)0, "%zu");
+	s = "0123";
+	n = mtree_atol(s, &endptr);
+	TEST_ASSERT_VALCMP(n, (int64_t)0123, "%" PRIo64);
+	TEST_ASSERT_VALCMP(strlen(endptr), (size_t)0, "%zu");
+	s = "0xabc";
+	n = mtree_atol(s, &endptr);
+	TEST_ASSERT_VALCMP(n, (int64_t)0xabc, "0x%" PRIx64);
+	TEST_ASSERT_VALCMP(strlen(endptr), (size_t)0, "%zu");
+
+	/* Test limits. */
+	s = "9223372036854775807";
+	n = mtree_atol(s, &endptr);
+	TEST_ASSERT_VALCMP(n, INT64_MAX, "0x%" PRIx64);
+	TEST_ASSERT_VALCMP(strlen(endptr), (size_t)0, "%zu");
+	s = "9223372036854775808";
+	n = mtree_atol(s, &endptr);
+	TEST_ASSERT_VALCMP(n, INT64_MAX, "0x%" PRIx64);
+	TEST_ASSERT_VALCMP(strlen(endptr), (size_t)0, "%zu");
+	s = "-9223372036854775808";
+	n = mtree_atol(s, &endptr);
+	TEST_ASSERT_VALCMP(n, INT64_MIN, "0x%" PRIx64);
+	TEST_ASSERT_VALCMP(strlen(endptr), (size_t)0, "%zu");
+	s = "-9223372036854775809";
+	n = mtree_atol(s, &endptr);
+	TEST_ASSERT_VALCMP(n, INT64_MIN, "0x%" PRIx64);
+	TEST_ASSERT_VALCMP(strlen(endptr), (size_t)0, "%zu");
 }
 
 static void
@@ -103,9 +169,31 @@ test_cleanup_path()
 	}
 }
 
+static void
+test_vispath()
+{
+	const char	*s;
+	char		 unvis[64];
+	char		*vis;
+
+	s = " \t\n\\#*=?[]";
+	vis = mtree_vispath(s, 0);
+	TEST_ASSERT_STRCMP(vis, "\\040\\011\\012\\134\\043\\052\\075\\077\\133]");
+	strnunvis(unvis, sizeof(unvis), vis);
+	TEST_ASSERT_STRCMP(unvis, s);
+	free(vis);
+	vis = mtree_vispath(s, 1);
+	TEST_ASSERT_STRCMP(vis, "\\s\\t\\n\\\\\\#\\*\\=\\?\\[]");
+	strnunvis(unvis, sizeof(unvis), vis);
+	TEST_ASSERT_STRCMP(unvis, s);
+	free(vis);
+}
+
 void
-test_misc()
+test_mtree_misc()
 {
 	TEST_RUN(test_basic, "mtree_basic");
+	TEST_RUN(test_atol, "mtree_atol");
 	TEST_RUN(test_cleanup_path, "mtree_cleanup_path");
+	TEST_RUN(test_vispath, "mtree_vispath");
 }

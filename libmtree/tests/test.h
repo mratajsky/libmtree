@@ -27,6 +27,10 @@
 #ifndef _TEST_H_
 #define _TEST_H_
 
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+
 extern int tests;
 extern int tests_failed;
 extern int tests_skipped;
@@ -37,11 +41,12 @@ extern int tests_current_skipped;
 /*
  * Test functions.
  */
-void test_cksum(void);
-void test_digest(void);
-void test_misc(void);
-void test_spec_diff(void);
-void test_trie(void);
+void test_mtree_cksum(void);
+void test_mtree_digest(void);
+void test_mtree_entry(void);
+void test_mtree_misc(void);
+void test_mtree_spec_diff(void);
+void test_mtree_trie(void);
 
 /*
  * Run the test function with the given name.
@@ -70,6 +75,9 @@ void test_trie(void);
 	tests_skipped += tests_current_skipped;				\
 } while (0)
 
+/*
+ * Skip test with the given message.
+ */
 #define TEST_SKIP(format, ...) do {					\
 	_TEST_SKIPPED(format, __VA_ARGS__);				\
 } while (0)

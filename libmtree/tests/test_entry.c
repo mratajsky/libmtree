@@ -23,45 +23,37 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
-#include <stdio.h>
-
 #include "test.h"
 
-int tests;
-int tests_failed;
-int tests_skipped;
-int tests_current;
-int tests_current_failed;
-int tests_current_skipped;
+#include "libmtree/mtree.h"
+#include "libmtree/mtree_private.h"
 
-int
-main(void)
+#define ENTRY_ORIGPATH	"/tmp/mtree-test-entry"
+#define ENTRY_PATH	"./tmp/mtree-test-entry"
+#define ENTRY_NAME	"mtree-test-entry"
+#define ENTRY_DIRNAME	"./tmp"
+
+static void
+test_entry(void)
 {
-	int ret = 0;
+	struct mtree_entry *e;
 
-	/*
-	 * Call all of our test functions.
-	 */
-	test_mtree_misc();
-	test_mtree_cksum();
-	test_mtree_digest();
-	test_mtree_trie();
-	test_mtree_entry();
-	test_mtree_spec_diff();
+	e = mtree_entry_create(ENTRY_ORIGPATH);
+	TEST_ASSERT_ERRNO(e != NULL);
+	if (e == NULL)
+		return;
 
-	if (tests_failed == 0)
-		printf("\nPASS (%d tests passed", tests);
-	else {
-		if (tests_current_failed == 0)
-			printf("\n");
-		printf("FAIL (%d out of %d tests failed",
-		    tests_failed, tests);
-		ret = 1;
-	}
-	if (tests_skipped > 0)
-		printf(", %d skipped)\n", tests_skipped);
-	else
-		printf(")\n");
-	return (ret);
+	TEST_ASSERT_STRCMP(mtree_entry_get_path(e), ENTRY_PATH);
+	TEST_ASSERT_STRCMP(mtree_entry_get_name(e), ENTRY_NAME);
+	TEST_ASSERT_STRCMP(mtree_entry_get_dirname(e), ENTRY_DIRNAME);
+
+	// TODO: add more tests
+
+	mtree_entry_free(e);
+}
+
+void
+test_mtree_entry()
+{
+	TEST_RUN(test_entry, "mtree_entry");
 }
