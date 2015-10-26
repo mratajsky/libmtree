@@ -343,27 +343,45 @@ mtree_getcwd(void)
 }
 
 /*
- * Convert group ID into group name.
+ * Convert group ID to group name.
  */
 char *
 mtree_gname_from_gid(gid_t gid)
 {
+	char *gname = NULL;
+
 #ifdef HAVE_GROUP_FROM_GID
-	const char *gname;
+	const char *group;
 
-	gname = group_from_gid(gid, 1);
-	if (gname == NULL)
-		return (NULL);
-	return (strdup(gname));
+	group = group_from_gid(gid, 1);
+	if (group != NULL)
+		gname = strdup(group);
 #else
-	struct group *grent;
+	struct group	 grent;
+	struct group	*result;
+	char		*buf;
+	long		 len;
+	int		 err;
 
-	errno = 0;
-	grent = getgrgid(gid);
-	if (grent == NULL)
-		return (NULL);
-	return (strdup(grent->gr_name));
+#if defined(_SC_GETGR_R_SIZE_MAX)
+	len = sysconf(_SC_GETGR_R_SIZE_MAX);
+#else
+	len = -1;
 #endif
+	if (len == -1)
+		len = 4096;
+	buf = malloc(len);
+	if (buf == NULL)
+		return (NULL);
+	err = getgrgid_r(gid, &grent, buf, len, &result);
+	if (err == 0) {
+		if (result != NULL)
+			gname = strdup(result->gr_name);
+	} else
+		errno = err;
+	free(buf);
+#endif
+	return (gname);
 }
 
 char *
@@ -394,27 +412,45 @@ mtree_readlink(const char *path)
 }
 
 /*
- * Convert user ID into user name.
+ * Convert user ID to user name.
  */
 char *
 mtree_uname_from_uid(uid_t uid)
 {
+	char *uname = NULL;
+
 #ifdef HAVE_USER_FROM_UID
-	const char *uname;
+	const char *user;
 
-	uname = user_from_uid(uid, 1);
-	if (uname == NULL)
-		return (NULL);
-	return (strdup(uname));
+	user = user_from_uid(uid, 1);
+	if (user != NULL)
+		uname = strdup(user);
 #else
-	struct passwd *pwent;
+	struct passwd	 pwent;
+	struct passwd	*result;
+	char		*buf;
+	long		 len;
+	int		 err;
 
-	errno = 0;
-	pwent = getpwuid(uid);
-	if (pwent == NULL)
-		return (NULL);
-	return (strdup(pwent->pw_name));
+#if defined(_SC_GETPW_R_SIZE_MAX)
+	len = sysconf(_SC_GETPW_R_SIZE_MAX);
+#else
+	len = -1;
 #endif
+	if (len == -1)
+		len = 4096;
+	buf = malloc(len);
+	if (buf == NULL)
+		return (NULL);
+	err = getpwuid_r(uid, &pwent, buf, len, &result);
+	if (err == 0) {
+		if (result != NULL)
+			uname = strdup(result->pw_name);
+	} else
+		errno = err;
+	free(buf);
+#endif
+	return (uname);
 }
 
 /*
