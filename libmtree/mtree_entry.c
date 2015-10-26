@@ -846,7 +846,7 @@ set_keywords(struct mtree_entry *entry, const struct stat *st, uint64_t kset,
 		TRY_CLR_KEYWORD_STR(entry->data.rmd160digest,
 		    MTREE_KEYWORD_MASK_RMD160);
 
-	if (digests != 0) {
+	if ((kset & MTREE_KEYWORD_CKSUM) || digests != 0) {
 		uint64_t mask = MTREE_KEYWORD_CKSUM | MTREE_KEYWORD_MASK_DIGEST;
 		set_checksums(entry, digests,
 		    (kset & mask) |
