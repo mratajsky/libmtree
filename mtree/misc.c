@@ -47,7 +47,10 @@ parse_keyword(const char *name)
 	assert(name != NULL);
 
 	if (strcmp(name, "all") == 0)
-		return (MTREE_KEYWORD_MASK_ALL);
+		return (MTREE_KEYWORD_MASK_ALL &
+		    ~(MTREE_KEYWORD_IGNORE |
+		      MTREE_KEYWORD_OPTIONAL |
+		      MTREE_KEYWORD_NOCHANGE));
 
 	keyword = mtree_keyword_parse(name);
 	if (keyword == 0)
