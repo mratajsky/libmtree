@@ -161,6 +161,10 @@ convert_string_to_flags(const char *s, uint32_t *flags)
 	char     *tmp = (char *) s;
 	u_long	  fl;
 
+	if (strcmp(s, "none") == 0) {
+		*flags = 0;
+		return (0);
+	}
 	if (strtofflags(&tmp, &fl, NULL) == 0) {
 		*flags = (uint32_t) fl;
 		return (0);
