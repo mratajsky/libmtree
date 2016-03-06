@@ -957,16 +957,10 @@ copy_keyword(struct mtree_entry_data *data, const struct mtree_entry_data *from,
 		mtree_copy_string(&data->contents, from->contents);
 		break;
 	case MTREE_KEYWORD_DEVICE:
-		if (from->device != NULL) {
-			if (data->device != NULL)
-				mtree_device_copy_data(data->device,
-				    from->device);
-			else
-				data->device = mtree_device_copy(data->device);
-		} else if (data->device != NULL) {
-			mtree_device_free(data->device);
-			data->device = NULL;
-		}
+		if (data->device != NULL)
+			mtree_device_copy_data(data->device, from->device);
+		else
+			data->device = mtree_device_copy(from->device);
 		break;
 	case MTREE_KEYWORD_FLAGS:
 		mtree_copy_string(&data->flags, from->flags);
@@ -1001,16 +995,10 @@ copy_keyword(struct mtree_entry_data *data, const struct mtree_entry_data *from,
 		/* No value */
 		break;
 	case MTREE_KEYWORD_RESDEVICE:
-		if (from->resdevice != NULL) {
-			if (data->resdevice != NULL)
-				mtree_device_copy_data(data->resdevice,
-				    from->resdevice);
-			else
-				data->resdevice = mtree_device_copy(data->resdevice);
-		} else if (data->resdevice != NULL) {
-			mtree_device_free(data->resdevice);
-			data->resdevice = NULL;
-		}
+		if (data->resdevice != NULL)
+			mtree_device_copy_data(data->resdevice, from->resdevice);
+		else
+			data->resdevice = mtree_device_copy(from->resdevice);
 		break;
 	case MTREE_KEYWORD_RIPEMD160DIGEST:
 	case MTREE_KEYWORD_RMD160:
