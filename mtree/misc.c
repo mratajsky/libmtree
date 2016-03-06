@@ -50,7 +50,6 @@ parse_keyword(const char *name)
 		return (MTREE_KEYWORD_MASK_ALL);
 
 	keyword = mtree_keyword_parse(name);
-	printf("%s->%ld\n",name,keyword);
 	if (keyword == 0)
 		mtree_err("unknown keyword `%s'", name);
 
