@@ -977,7 +977,6 @@ verify_spec(FILE *fp)
 	struct mtree_spec_diff	*sd;
 	struct mtree_entry	*entry;
 	uint64_t		 kw;
-	int			 options;
 	int			 ret = 0;
 
 	spec1 = read_spec(fp);
@@ -999,7 +998,6 @@ verify_spec(FILE *fp)
 	/*
 	 * Create a spec diff, but avoid comparing keywords until later.
 	 */
-	options = 0;
 	sd = mtree_spec_diff_create(spec1, spec2, 0, 0);
 	if (sd == NULL) {
 		mtree_spec_free(spec1);
