@@ -92,6 +92,8 @@ PKG_PROG_PKG_CONFIG
 # =======================================================================
 AC_FUNC_STRERROR_R
 
+AC_CHECK_FUNCS([fpathconf dirfd])
+
 AC_CHECK_HEADERS([netdb.h])
 AC_CHECK_HEADERS([sys/cdefs.h])
 

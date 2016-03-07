@@ -313,8 +313,8 @@ int64_t			 mtree_atol10(const char *p, const char **endptr);
 int64_t			 mtree_atol16(const char *p, const char **endptr);
 int			 mtree_cleanup_path(const char *path, char **ppart,
 			    char **npart);
+char			*mtree_concat_path(const char *d, const char *f);
 int			 mtree_copy_string(char **dst, const char *src);
-char			*mtree_getcwd(void);
 char			*mtree_gname_from_gid(gid_t gid);
 char			*mtree_uname_from_uid(uid_t uid);
 char			*mtree_readlink(const char *path);

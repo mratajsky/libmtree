@@ -299,6 +299,24 @@ mtree_cleanup_path(const char *path, char **ppart, char **npart)
 	return (0);
 }
 
+char *
+mtree_concat_path(const char *d, const char *f)
+{
+	char	*path;
+	size_t	 len;
+
+	assert(d != NULL && *d != '\0');
+	assert(f != NULL && *f != '\0');
+
+	len = strlen(d) + strlen(f) + 2;
+	path = malloc(len);
+	if (path == NULL)
+		return (NULL);
+
+	snprintf(path, len, "%s/%s", d, f);
+	return (path);
+}
+
 /*
  * Free *dst and copy src into *dst. If src is NULL, set *dst to NULL as well.
  */
@@ -315,31 +333,6 @@ mtree_copy_string(char **dst, const char *src)
 	} else
 		*dst = NULL;
 	return (0);
-}
-
-/*
- * Return path to the current working directory.
- */
-char *
-mtree_getcwd(void)
-{
-	char	*wd;
-	size_t	 size = 256;
-
-	for (;;) {
-		wd = malloc(size);
-		if (wd == NULL)
-			return (NULL);
-		if (getcwd(wd, size) == NULL) {
-			if (errno == ERANGE) {
-				size <<= 1;
-				continue;
-			}
-			return (NULL);
-		} else
-			break;
-	}
-	return (wd);
 }
 
 /*

@@ -27,12 +27,15 @@
 #include "config.h"
 
 #include <sys/types.h>
+#include <sys/stat.h>
 
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1011,77 +1014,91 @@ read_path(struct mtree_reader *r, const char *path, struct mtree_entry **entries
 {
 	DIR			*dirp;
 	struct dirent		*dp;
+	struct dirent		*result;
 	struct mtree_entry	*entry;
-	struct mtree_entry	*dirs = NULL;
-	struct mtree_entry	*dot = NULL;
-	char			*wd = NULL;
+	struct mtree_entry	*dirs;
+	struct mtree_entry	*dot;
+	int			 err;
+	int			 len;
 	int			 ret;
 	int			 skip;
 	int			 skip_children;
 
 	if (parent == NULL) {
+		struct stat st;
+
+		if ((r->options & MTREE_READ_PATH_FOLLOW_SYMLINKS) != 0)
+			ret = stat(path, &st);
+		else
+			ret = lstat(path, &st);
+		if (ret == -1) {
+			mtree_reader_set_errno_prefix(r, errno, "`%s'", path);
+			return (-1);
+		}
+
 		entry = mtree_entry_create(path);
 		if (entry == NULL)
 			return (-1);
-		ret = read_path_file(r, entry, &skip, &skip_children);
-		if (ret == -1) {
-			mtree_entry_free(entry);
-			return (-1);
-		}
+
+		entry->data.type = mtree_entry_type_from_mode(st.st_mode & S_IFMT);
+
 		/*
 		 * If the path doesn't point to a directory, simply store
 		 * the single entry.
 		 */
 		if (entry->data.type != MTREE_ENTRY_DIR) {
+			ret = read_path_file(r, entry, &skip, &skip_children);
+			if (ret == -1 || skip) {
+				if (ret == -1)
+					mtree_reader_set_errno_prefix(r, errno,
+					    "`%s'", path);
+				mtree_entry_free(entry);
+				return (ret);
+			}
 			*entries = entry;
 			return (0);
 		}
 		mtree_entry_free(entry);
 
-		if ((r->options & MTREE_READ_PATH_DONT_CROSS_MOUNT) != 0) {
-			struct stat st;
-
-			if ((r->options & MTREE_READ_PATH_FOLLOW_SYMLINKS) != 0)
-				ret = stat(path, &st);
-			else
-				ret = lstat(path, &st);
-			if (ret == -1) {
-				mtree_reader_set_errno_prefix(r, errno, "`%s'", path);
-				return (-1);
-			}
-			r->base_dev = st.st_dev;
-		}
-
-		/*
-		 * Change to the directory to be able to read the files
-		 * with the mtree's "./" prefix.
-		 */
-		wd = mtree_getcwd();
-		if (wd == NULL) {
-			mtree_reader_set_errno_error(r, errno,
-			    "Could not determine the current working directory");
-			return (-1);
-		}
-		if (chdir(path) == -1) {
-			mtree_reader_set_errno_error(r, errno,
-			    "Could not change the working directory to `%s'",
-			    path);
-			return (-1);
-		}
+		r->base_dev = st.st_dev;
 	}
+
+	dirs = dot = NULL;
+	dp = NULL;
 
 	/*
 	 * Read the directory structure.
 	 */
 	ret = 0;
-	if ((dirp = opendir((parent != NULL) ? path : ".")) == NULL) {
+	if ((dirp = opendir(path)) == NULL) {
 		if ((r->options & MTREE_READ_PATH_SKIP_ON_ERROR) == 0) {
+			mtree_reader_set_errno_prefix(r, errno, "`%s'", path);
 			ret = -1;
 			goto end;
 		}
 		return (0);
 	}
-	while ((dp = readdir(dirp)) != NULL) {
+#if defined(HAVE_FPATHCONF) && defined(HAVE_DIRFD) && defined(_PC_NAME_MAX)
+	len = fpathconf(dirfd(dirp), _PC_NAME_MAX);
+#else
+	len = -1;
+#endif
+	if (len == -1) {
+#if defined(NAME_MAX)
+		len = (NAME_MAX > 255) ? NAME_MAX : 255;
+#else
+		len = 255;
+#endif
+	}
+	/* POSIX.1 requires that d_name is the last field in a struct dirent. */
+	dp = malloc(offsetof(struct dirent, d_name) + len + 1);
+	if (dp == NULL) {
+		mtree_reader_set_errno_error(r, errno, NULL);
+		ret = -1;
+		goto end;
+	}
+
+	while ((err = readdir_r(dirp, dp, &result)) == 0 && result != NULL) {
 		if (IS_DOTDOT(dp->d_name))
 			continue;
 		/*
@@ -1092,21 +1109,63 @@ read_path(struct mtree_reader *r, const char *path, struct mtree_entry **entries
 
 		entry = mtree_entry_create_empty();
 		if (entry == NULL) {
+			mtree_reader_set_errno_error(r, errno, NULL);
 			ret = -1;
 			break;
 		}
 		entry->name = strdup(dp->d_name);
 		if (entry->name == NULL) {
+			mtree_reader_set_errno_error(r, errno, NULL);
 			ret = -1;
+			mtree_entry_free(entry);
+			break;
+		}
+		if (IS_DOT(dp->d_name))
+			entry->orig = strdup(path);
+		else
+			entry->orig = mtree_concat_path(path, dp->d_name);
+		if (entry->orig == NULL) {
+			mtree_reader_set_errno_error(r, errno, NULL);
+			ret = -1;
+			mtree_entry_free(entry);
 			break;
 		}
 		entry->parent = parent;
 		entry->path = create_v1_path(entry);
 		if (entry->path == NULL) {
+			mtree_reader_set_errno_error(r, errno, NULL);
 			ret = -1;
+			mtree_entry_free(entry);
 			break;
 		}
 
+#ifdef HAVE_DIRENT_D_TYPE
+		switch (dp->d_type) {
+		case DT_BLK:
+			entry->data.type = MTREE_ENTRY_BLOCK;
+			break;
+		case DT_CHR:
+			entry->data.type = MTREE_ENTRY_CHAR;
+			break;
+		case DT_DIR:
+			entry->data.type = MTREE_ENTRY_DIR;
+			break;
+		case DT_FIFO:
+			entry->data.type = MTREE_ENTRY_FIFO;
+			break;
+		case DT_LNK:
+			entry->data.type = MTREE_ENTRY_LINK;
+			break;
+		case DT_REG:
+			entry->data.type = MTREE_ENTRY_FILE;
+			break;
+		case DT_SOCK:
+			entry->data.type = MTREE_ENTRY_SOCKET;
+			break;
+		default:
+			break;
+		}
+#endif
 		ret = read_path_file(r, entry, &skip, &skip_children);
 		if (ret == -1)
 			break;
@@ -1143,7 +1202,12 @@ read_path(struct mtree_reader *r, const char *path, struct mtree_entry **entries
 		} else if (!skip)
 			*entries = mtree_entry_prepend(*entries, entry);
 	}
+	if (err > 0)
+		errno = ret = err;
 end:
+	if (dp != NULL)
+		free(dp);
+
 	if (ret == 0) {
 		if (dot != NULL) {
 			/* Put the initial dot at the (reversed) start. */
@@ -1172,11 +1236,12 @@ end:
 		/* Fatal error, clean up and make our way back to the caller. */
 		mtree_entry_free_all(*entries);
 		*entries = NULL;
+
+		err = errno;
+		closedir(dirp);
+		errno = err;
 	}
 	mtree_entry_free_all(dirs);
-
-	if (parent == NULL && chdir(wd) == -1)
-		WARN("Could not change the working directory back to `%s'", wd);
 
 	return (ret);
 }
