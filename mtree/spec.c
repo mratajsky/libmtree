@@ -50,7 +50,7 @@ create_spec(void)
 
 	spec = mtree_spec_create();
 	if (spec == NULL)
-		return (NULL);
+		mtree_err("memory allocation error");
 
 	options = MTREE_READ_MERGE;
 	if (Sflag)
@@ -77,9 +77,6 @@ create_spec_with_default_filter(void)
 	struct mtree_spec *spec;
 
 	spec = create_spec();
-	if (spec == NULL)
-		return (NULL);
-
 	mtree_spec_set_read_filter(spec, filter_spec, NULL);
 	return (spec);
 }
@@ -111,14 +108,9 @@ read_spec(FILE *fp)
 	assert(fp != NULL);
 
 	spec = create_spec();
-	if (spec == NULL)
-		return (NULL);
-
-	if (mtree_spec_read_spec_file(spec, fp) != 0) {
+	if (mtree_spec_read_spec_file(spec, fp) != 0)
 		mtree_err("%s", mtree_spec_get_read_error(spec));
-		mtree_spec_free(spec);
-		spec = NULL;
-	}
+
 	return (spec);
 }
 
@@ -134,13 +126,8 @@ compare_spec(FILE *f1, FILE *f2, FILE *fw)
 	assert(fw != NULL);
 
 	spec1 = read_spec(f1);
-	if (spec1 == NULL)
-		return (-1);
 	spec2 = read_spec(f2);
-	if (spec2 == NULL) {
-		mtree_spec_free(spec1);
-		return (-1);
-	}
+
 	diff = mtree_spec_diff_create(spec1, spec2, MTREE_KEYWORD_MASK_ALL, 0);
 	if (diff != NULL) {
 		if (mtree_spec_diff_get_different(diff) != NULL)
@@ -155,26 +142,24 @@ compare_spec(FILE *f1, FILE *f2, FILE *fw)
 	return (ret);
 }
 
-int
+void
 read_write_spec(FILE *fr, FILE *fw, int path_last)
 {
-	struct mtree_spec	*spec;
-	int			 ret;
+	struct mtree_spec *spec;
 
 	assert(fr != NULL);
 	assert(fw != NULL);
 
 	spec = read_spec(fr);
-	if (spec == NULL)
-		return (-1);
 	if (path_last)
 		mtree_spec_set_write_format(spec, MTREE_FORMAT_2_0_PATH_LAST);
 	else
 		mtree_spec_set_write_format(spec, MTREE_FORMAT_2_0);
 
-	ret = mtree_spec_write_file(spec, fw);
+	if (mtree_spec_write_file(spec, fw) != 0)
+		mtree_err("%s", strerror(errno));
+
 	mtree_spec_free(spec);
-	return (ret);
 }
 
 static void
@@ -201,49 +186,47 @@ write_spec_header(FILE *fp, const char *tree)
 		"#\tmachine: %s\n"
 		"#\t   tree: %s\n"
 		"#\t   date: %s\n",
-		user ? user : "<unknown>",
+		user != NULL ? user : "<unknown>",
 		host,
-		tree ? tree : "<unknown>", ctime(&clocktime));
+		tree != NULL ? tree : "<unknown>", ctime(&clocktime));
 }
 
-int
+void
 write_spec_tree(FILE *fw, const char *tree)
 {
 	struct mtree_spec	*spec;
 	int			 options;
-	int			 ret;
 
 	assert(fw != NULL);
 
 	spec = create_spec_with_default_filter();
-	if (spec == NULL)
-		return (-1);
 	if (tree == NULL)
 		tree = ".";
 
-	ret = mtree_spec_read_path(spec, tree);
-	if (ret == 0) {
-		if (!nflag)
-			write_spec_header(fw, tree);
+	if (mtree_spec_read_path(spec, tree) != 0)
+		mtree_err("%s", mtree_spec_get_read_error(spec));
 
-		options =
-		    MTREE_WRITE_USE_SET |
-		    MTREE_WRITE_INDENT |
-		    MTREE_WRITE_SPLIT_LONG_LINES;
-		if (jflag)
-			options |= MTREE_WRITE_INDENT_LEVEL;
-		if (!nflag)
-			options |= MTREE_WRITE_DIR_COMMENTS;
-		if (!bflag)
-			options |= MTREE_WRITE_DIR_BLANK_LINES;
-		if (flavor == FLAVOR_NETBSD6)
-			options |= MTREE_WRITE_ENCODE_CSTYLE;
+	if (!nflag)
+		write_spec_header(fw, tree);
 
-		mtree_spec_set_write_options(spec, options);
-		mtree_spec_set_write_format(spec, MTREE_FORMAT_1_0);
+	options =
+	    MTREE_WRITE_USE_SET |
+	    MTREE_WRITE_INDENT |
+	    MTREE_WRITE_SPLIT_LONG_LINES;
+	if (jflag)
+		options |= MTREE_WRITE_INDENT_LEVEL;
+	if (!nflag)
+		options |= MTREE_WRITE_DIR_COMMENTS;
+	if (!bflag)
+		options |= MTREE_WRITE_DIR_BLANK_LINES;
+	if (flavor == FLAVOR_NETBSD6)
+		options |= MTREE_WRITE_ENCODE_CSTYLE;
 
-		ret = mtree_spec_write_file(spec, fw);
-	}
+	mtree_spec_set_write_options(spec, options);
+	mtree_spec_set_write_format(spec, MTREE_FORMAT_1_0);
+
+	if (mtree_spec_write_file(spec, fw) != 0)
+		mtree_err("%s", strerror(errno));
+
 	mtree_spec_free(spec);
-	return (ret);
 }

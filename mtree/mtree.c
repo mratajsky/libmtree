@@ -322,12 +322,7 @@ main(int argc, char **argv)
 	 * Write a spec for `dir' to stdout
 	 */
 	if (cflag) {
-		/*
-		if (dir != NULL && chdir(dir) != 0)
-			mtree_err("%s: %s", dir, strerror(errno));
-			*/
-		if (write_spec_tree(stdout, dir) != 0)
-			mtree_err("Failed to write spec: %s", strerror(errno));
+		write_spec_tree(stdout, dir);
 		exit(0);
 	}
 
@@ -342,8 +337,7 @@ main(int argc, char **argv)
 	 * Read spec from stdin or file and convert it to mtree v2.0 format
 	 */
 	if (Cflag || Dflag) {
-		if (read_write_spec(spec1, stdout, Dflag) != 0)
-			mtree_err("%s", strerror(errno));
+		read_write_spec(spec1, stdout, Dflag);
 		exit(0);
 	}
 
