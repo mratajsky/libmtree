@@ -1120,7 +1120,7 @@ read_path(struct mtree_reader *r, const char *path, struct mtree_entry **entries
 			break;
 		}
 
-#ifdef HAVE_DIRENT_D_TYPE
+#ifdef HAVE_STRUCT_DIRENT_D_TYPE
 		if (!IS_DOT(dp->d_name))
 			switch (dp->d_type) {
 			case DT_BLK:

@@ -116,6 +116,7 @@ AC_SEARCH_LIBS([fparseln], [util], [
 AC_CHECK_MEMBERS([struct stat.st_mtim, struct stat.st_mtime])
 AC_CHECK_MEMBERS([struct stat.st_flags])
 AC_CHECK_MEMBERS([struct stat.st_rdev])
+AC_CHECK_MEMBERS([struct dirent.d_type])
 
 # BSD only
 AC_CHECK_FUNCS([pwcache_userdb pwcache_groupdb])
