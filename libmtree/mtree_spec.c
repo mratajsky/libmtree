@@ -100,7 +100,7 @@ mtree_spec_read_spec_file(struct mtree_spec *spec, FILE *fp)
 	assert(fp != NULL);
 
 	if (spec->reading) {
-		mtree_reader_set_error(spec->reader, EPERM,
+		mtree_reader_set_errno_error(spec->reader, EPERM,
 		    "Reading not finalized, call mtree_spec_read_spec_data_finish()");
 		return (-1);
 	}
@@ -121,7 +121,7 @@ mtree_spec_read_spec_fd(struct mtree_spec *spec, int fd)
 	assert(fd != -1);
 
 	if (spec->reading) {
-		mtree_reader_set_error(spec->reader, EPERM,
+		mtree_reader_set_errno_error(spec->reader, EPERM,
 		    "Reading not finalized, call mtree_spec_read_spec_data_finish()");
 		return (-1);
 	}

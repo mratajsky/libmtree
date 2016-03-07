@@ -277,8 +277,10 @@ void			 mtree_reader_set_path_keywords(struct mtree_reader *r,
 			    uint64_t keywords);
 
 const char		*mtree_reader_get_error(struct mtree_reader *r);
-void			 mtree_reader_set_error(struct mtree_reader *r,
+void			 mtree_reader_set_errno_error(struct mtree_reader *r,
 			    int err, const char *format, ...);
+void			 mtree_reader_set_errno_prefix(struct mtree_reader *r,
+			    int err, const char *prefix, ...);
 
 /* mtree_writer.c */
 struct mtree_writer	*mtree_writer_create(void);

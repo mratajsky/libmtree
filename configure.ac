@@ -90,6 +90,8 @@ PKG_PROG_PKG_CONFIG
 # =======================================================================
 # Portability checks
 # =======================================================================
+AC_FUNC_STRERROR_R
+
 AC_CHECK_HEADERS([netdb.h])
 AC_CHECK_HEADERS([sys/cdefs.h])
 

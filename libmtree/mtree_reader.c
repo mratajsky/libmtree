@@ -24,6 +24,8 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
+
 #include <sys/types.h>
 
 #include <assert.h>
@@ -115,6 +117,7 @@ mtree_reader_reset(struct mtree_reader *r)
 	r->buflen = 0;
 	r->path_last = -1;
 
+	mtree_copy_string(&r->error, NULL);
 	mtree_entry_free_data_items(&r->defaults);
 
 	memset(&r->defaults, 0, sizeof(r->defaults));
@@ -190,9 +193,13 @@ read_keyword(struct mtree_reader *r, char *s, struct mtree_entry_data *data, int
 			if (data->device == NULL)
 				break;
 		}
-		if (mtree_device_parse(data->device, value) == -1)
-			mtree_reader_set_error(r, errno, "%s",
+		if (mtree_device_parse(data->device, value) == -1) {
+			mtree_reader_set_errno_error(r, errno, "`%s': %s", value,
 			    mtree_device_get_error(data->device));
+
+			/* Prevent rewriting the error later. */
+			return (-1);
+		}
 		break;
 	case MTREE_KEYWORD_FLAGS:
 		if (value == NULL) {
@@ -286,9 +293,13 @@ read_keyword(struct mtree_reader *r, char *s, struct mtree_entry_data *data, int
 			if (data->resdevice == NULL)
 				break;
 		}
-		if (mtree_device_parse(data->resdevice, value) == -1)
-			mtree_reader_set_error(r, errno, "%s",
+		if (mtree_device_parse(data->resdevice, value) == -1) {
+			mtree_reader_set_errno_error(r, errno, "`%s': %s", value,
 			    mtree_device_get_error(data->resdevice));
+
+			/* Prevent rewriting the error later. */
+			return (-1);
+		}
 		break;
 	case MTREE_KEYWORD_RIPEMD160DIGEST:
 	case MTREE_KEYWORD_RMD160:
@@ -405,17 +416,17 @@ read_keyword(struct mtree_reader *r, char *s, struct mtree_entry_data *data, int
 
 	if (errno != 0) {
 		if (errno == ENOENT)
-			mtree_reader_set_error(r, errno, "`%s': missing keyword "
-			    "value", s);
+			mtree_reader_set_errno_error(r, errno,
+			    "`%s': missing keyword value", s);
 		else if (errno == EINVAL)
-			mtree_reader_set_error(r, errno, "`%s': invalid keyword "
-			    "value `%s'", s, value);
+			mtree_reader_set_errno_error(r, errno,
+			    "`%s': invalid keyword value: `%s'", s, value);
 		else if (errno == ENAMETOOLONG)
-			mtree_reader_set_error(r, errno, "`%s': file name too "
-			    "long: `%s'", s, value);
+			mtree_reader_set_errno_error(r, errno,
+			    "`%s': file name too long: `%s'", s, value);
 		else {
 			/* These should be just memory errors. */
-			mtree_reader_set_error(r, errno, NULL);
+			mtree_reader_set_errno_error(r, errno, NULL);
 		}
 		return (-1);
 	}
@@ -471,6 +482,7 @@ read_keywords(struct mtree_reader *r, char *s, struct mtree_entry_data *data,
 		read_word(s, &word, &next);
 		if (word == NULL)
 			break;
+		/* Sets reader error. */
 		ret = read_keyword(r, word, data, set);
 		if (ret == -1)
 			break;
@@ -494,8 +506,10 @@ read_command(struct mtree_reader *r, char *s)
 	assert(cmd != NULL);
 
 	if (!strcmp(cmd, "/set"))
+		/* Sets reader error. */
 		ret = read_keywords(r, next, &r->defaults, 1);
 	else if (!strcmp(cmd, "/unset"))
+		/* Sets reader error. */
 		ret = read_keywords(r, next, &r->defaults, 0);
 	else {
 		WARN("Ignoring unknown command `%s'", cmd);
@@ -551,7 +565,7 @@ detect_format(struct mtree_reader *r, char *s)
 	 */
 	cp = strdup(s);
 	if (cp == NULL) {
-		mtree_reader_set_error(r, errno, NULL);
+		mtree_reader_set_errno_error(r, errno, NULL);
 		return (-1);
 	}
 	read_word(cp, &word, &next);
@@ -621,7 +635,7 @@ read_spec(struct mtree_reader *r, char *s)
 		if (IS_DOTDOT(file)) {
 			/* Only change the parent, keywords are ignored. */
 			if (r->parent == NULL) {
-				mtree_reader_set_error(r, EINVAL,
+				mtree_reader_set_errno_error(r, EINVAL,
 				    "`..' not allowed, no parent directory");
 				return (-1);
 			}
@@ -631,13 +645,13 @@ read_spec(struct mtree_reader *r, char *s)
 	}
 	entry = mtree_entry_create_empty();
 	if (entry == NULL) {
-		mtree_reader_set_error(r, errno, NULL);
+		mtree_reader_set_errno_error(r, errno, NULL);
 		return (-1);
 	}
 
 	if (r->path_last != 1) {
 		if (next != NULL) {
-			/* Read keyword that follow the path. */
+			/* Read keyword that follows the path, sets reader error. */
 			ret = read_keywords(r, next, &entry->data, 1);
 			if (ret == -1) {
 				mtree_entry_free(entry);
@@ -651,6 +665,7 @@ read_spec(struct mtree_reader *r, char *s)
 			assert(word != NULL);
 
 			if (next != NULL) {
+				/* Sets reader error. */
 				ret = read_keyword(r, word, &entry->data, 1);
 				if (ret == -1) {
 					mtree_entry_free(entry);
@@ -663,8 +678,8 @@ read_spec(struct mtree_reader *r, char *s)
 		assert(file != NULL);
 
 		if (IS_DOTDOT(file)) {
-			mtree_reader_set_error(r, EINVAL, "`..' not allowed in "
-			    "this format");
+			mtree_reader_set_errno_error(r, EINVAL,
+			    "`..' not allowed in this format");
 			mtree_entry_free(entry);
 			return (-1);
 		}
@@ -690,8 +705,7 @@ read_spec(struct mtree_reader *r, char *s)
 
 	/* Save the file path and name. */
 	if (strnunvis(name, sizeof(name), file) == -1) {
-		mtree_reader_set_error(r, ENAMETOOLONG, "File name too long: `%s'",
-		    file);
+		mtree_reader_set_errno_prefix(r, ENAMETOOLONG, "`%s'", file);
 		mtree_entry_free(entry);
 		return (-1);
 	}
@@ -704,21 +718,21 @@ read_spec(struct mtree_reader *r, char *s)
 			goto skip;
 		ret = mtree_cleanup_path(name, &entry->path, &entry->name);
 		if (ret == -1) {
-			mtree_reader_set_error(r, errno, NULL);
+			mtree_reader_set_errno_error(r, errno, NULL);
 			mtree_entry_free(entry);
 			return (-1);
 		}
 	} else {
 		entry->name = strdup(name);
 		if (entry->name == NULL) {
-			mtree_reader_set_error(r, errno, NULL);
+			mtree_reader_set_errno_error(r, errno, NULL);
 			mtree_entry_free(entry);
 			return (-1);
 		}
 		entry->parent = r->parent;
 		entry->path = create_v1_path(entry);
 		if (entry->path == NULL) {
-			mtree_reader_set_error(r, errno, NULL);
+			mtree_reader_set_errno_error(r, errno, NULL);
 			mtree_entry_free(entry);
 			return (-1);
 		}
@@ -765,14 +779,14 @@ read_spec(struct mtree_reader *r, char *s)
 				if (r->skip_trie == NULL) {
 					r->skip_trie = mtree_trie_create(NULL);
 					if (r->skip_trie == NULL) {
-						mtree_reader_set_error(r, errno,
-						    NULL);
+						mtree_reader_set_errno_error(r,
+						    errno, NULL);
 						return (-1);
 					}
 				}
 				if (mtree_trie_insert(r->skip_trie, entry->path,
 				    TRIE_ITEM) == -1) {
-					mtree_reader_set_error(r, errno,
+					mtree_reader_set_errno_error(r, errno,
 					    NULL);
 					return (-1);
 				}
@@ -878,14 +892,14 @@ finish_entries(struct mtree_reader *r, struct mtree_entry **entries)
 		else {
 			if (errno == EEXIST) {
 				if (mismerged != NULL)
-					mtree_reader_set_error(r, errno,
+					mtree_reader_set_errno_error(r, errno,
 					    "Merge failed: %s is specified with "
 					    "multiple different types (%s and %s)",
 					    mismerged->path,
 					    mtree_entry_type_string(mismerged->data.type),
 					    mtree_entry_type_string(mismerged->next->data.type));
 				else
-					mtree_reader_set_error(r, errno,
+					mtree_reader_set_errno_error(r, errno,
 					    "Merge failed: spec contains duplicate "
 					    "entries with different types");
 			}
@@ -1020,7 +1034,7 @@ read_path(struct mtree_reader *r, const char *path, struct mtree_entry **entries
 			else
 				ret = lstat(path, &st);
 			if (ret == -1) {
-				mtree_reader_set_error(r, errno, "`%s'", path);
+				mtree_reader_set_errno_prefix(r, errno, "`%s'", path);
 				return (-1);
 			}
 			r->base_dev = st.st_dev;
@@ -1032,12 +1046,12 @@ read_path(struct mtree_reader *r, const char *path, struct mtree_entry **entries
 		 */
 		wd = mtree_getcwd();
 		if (wd == NULL) {
-			mtree_reader_set_error(r, errno,
+			mtree_reader_set_errno_error(r, errno,
 			    "Could not determine the current working directory");
 			return (-1);
 		}
 		if (chdir(path) == -1) {
-			mtree_reader_set_error(r, errno,
+			mtree_reader_set_errno_error(r, errno,
 			    "Could not change the working directory to `%s'",
 			    path);
 			return (-1);
@@ -1162,6 +1176,8 @@ mtree_reader_read_path(struct mtree_reader *r, const char *path,
 	int ret;
 
 	r->entries = NULL;
+
+	/* Sets reader error. */
 	ret = read_path(r, path, &r->entries, NULL);
 	if (ret == -1)
 		return (-1);
@@ -1235,7 +1251,7 @@ mtree_reader_add(struct mtree_reader *r, const char *s, ssize_t len)
 			}
 
 			if (bidx == MAX_LINE_LENGTH) {
-				errno = ENOBUFS;
+				mtree_reader_set_errno_error(r, ENOBUFS, NULL);
 				return (-1);
 			}
 			sidx++;
@@ -1250,13 +1266,15 @@ mtree_reader_add(struct mtree_reader *r, const char *s, ssize_t len)
 			nlen = r->buflen + bidx;
 			if (done == 0) {
 				if ((nlen + 1) > MAX_LINE_LENGTH) {
-					mtree_reader_set_error(r, ENOBUFS, NULL);
+					mtree_reader_set_errno_error(r,
+					    ENOBUFS, NULL);
 					return (-1);
 				}
 				if (!r->buf) {
 					r->buf = malloc(MAX_LINE_LENGTH);
 					if (r->buf == NULL) {
-						mtree_reader_set_error(r, errno, NULL);
+						mtree_reader_set_errno_error(r,
+						    errno, NULL);
 						return (-1);
 					}
 				}
@@ -1273,6 +1291,7 @@ mtree_reader_add(struct mtree_reader *r, const char *s, ssize_t len)
 		} else if (done == 1) {
 			/* The whole line is in buf. */
 			if (bidx) {
+				/* Sets reader error. */
 				ret = parse_line(r, buf);
 				if (ret == -1)
 					break;
@@ -1301,11 +1320,12 @@ mtree_reader_add_from_file(struct mtree_reader *r, FILE *fp)
 		s = fgets(buf, sizeof(buf), fp);
 		if (s == NULL) {
 			if (ferror(fp)) {
-				mtree_reader_set_error(r, errno, "Reading failed");
+				mtree_reader_set_errno_error(r, errno, NULL);
 				ret = -1;
 			}
 			break;
 		}
+		/* Sets reader error. */
 		ret = mtree_reader_add(r, buf, -1);
 		if (ret == -1)
 			break;
@@ -1335,9 +1355,8 @@ mtree_reader_add_from_fd(struct mtree_reader *r, int fd)
 		if (n == 0)
 			break;
 		if (n > 0) {
+			/* Sets reader error. */
 			ret = mtree_reader_add(r, buf, n);
-			if (ret == -1)
-				mtree_reader_set_error(r, errno, "Reading failed");
 		} else {
 			if (errno == EINTR ||
 #ifdef EWOULDBLOCK
@@ -1345,6 +1364,7 @@ mtree_reader_add_from_fd(struct mtree_reader *r, int fd)
 #endif
 			    errno == EAGAIN)
 				continue;
+			mtree_reader_set_errno_error(r, errno, NULL);
 			ret = -1;
 		}
 		if (ret == -1)
@@ -1381,8 +1401,10 @@ mtree_reader_finish(struct mtree_reader *r, struct mtree_entry **entries)
 		}
 		r->buflen = 0;
 	}
-	if (ret == 0)
+	if (ret == 0) {
+		/* Sets reader error. */
 		ret = finish_entries(r, entries);
+	}
 
 	mtree_reader_reset(r);
 	return (ret);
@@ -1398,29 +1420,68 @@ mtree_reader_get_error(struct mtree_reader *r)
 }
 
 /*
- * Set reader error.
+ * Set errno and reader error to the given string or strerror.
  */
 void
-mtree_reader_set_error(struct mtree_reader *r, int err, const char *format, ...)
+mtree_reader_set_errno_error(struct mtree_reader *r, int err, const char *format, ...)
 {
 	va_list args;
 	char	buf[MAX_ERRSTR_LENGTH];
 
 	assert(r != NULL);
 
-	errno = err;
 	if (format != NULL) {
+		errno = err;
 		va_start(args, format);
 		vsnprintf(buf, sizeof(buf), format, args);
 		va_end(args);
 
 		mtree_copy_string(&r->error, buf);
-	} else {
-		char errstr[MAX_ERRSTR_LENGTH];
+	} else
+		mtree_reader_set_errno_prefix(r, err, NULL);
+}
 
-		strerror_r(errno, errstr, sizeof(errstr));
-		mtree_copy_string(&r->error, errstr);
-	}
+/*
+ * Set errno and reader error to a string in the format "prefix: strerror".
+ */
+void
+mtree_reader_set_errno_prefix(struct mtree_reader *r, int err, const char *prefix, ...)
+{
+	va_list  args;
+	char	 buf[MAX_ERRSTR_LENGTH];
+	char	 errstr[MAX_ERRSTR_LENGTH];
+	char	*errstrp;
+	int	 len;
+
+	assert(r != NULL);
+
+	errno = err;
+#ifdef STRERROR_R_CHAR_P
+	errstrp = strerror_r(errno, errstr, sizeof(errstr));
+#else
+	strerror_r(errno, errstr, sizeof(errstr));
+	errstrp = errstr;
+#endif
+	if (prefix != NULL) {
+		va_start(args, prefix);
+		len = vsnprintf(buf, sizeof(buf), prefix, args);
+		va_end(args);
+		if (len < 1) {
+			if (len == 0)
+				mtree_copy_string(&r->error, errstrp);
+			else
+				mtree_copy_string(&r->error, NULL);
+			return;
+		}
+		len += strlen(errstr) + 3;
+
+		r->error = realloc(r->error, len);
+		if (r->error == NULL)
+			return;
+
+		snprintf(r->error, len, "%s: %s", buf, errstrp);
+	} else
+		mtree_copy_string(&r->error, errstrp);
 }
 
 /*
