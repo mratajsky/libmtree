@@ -35,6 +35,10 @@ libmtree
 .In mtree.h
 .Ft struct mtree_digest *
 .Fn mtree_digest_create "int types"
+.Ft int
+.Fn mtree_digest_get_types "struct mtree_digest *digest"
+.Ft int
+.Fn mtree_digest_get_available_types
 .Ft void
 .Fn mtree_digest_update "struct mtree_digest *digest" "const unsigned char *data" "size_t len"
 .Ft const char *
@@ -43,10 +47,6 @@ libmtree
 .Fn mtree_digest_reset "struct mtree_digest *digest"
 .Ft void
 .Fn mtree_digest_free "struct mtree_digest *digest"
-.Ft int
-.Fn mtree_digest_get_types "struct mtree_digest *digest"
-.Ft int
-.Fn mtree_digest_get_available_types
 .In mtree.h
 .In mtree_file.h
 .Ft char *
@@ -78,6 +78,7 @@ argument specifies the bitwise OR of the digest types, for which the message
 digest should be calculated.
 .Pp
 The follow types are supported:
+.Pp
 .Bd -literal -offset indent -compact
 MTREE_DIGEST_MD5	The MD5 Message Digest
 MTREE_DIGEST_RMD160	The RIPEMD-160 Message Digest
@@ -94,7 +95,8 @@ is the same bitwise OR of digest types that was passed to
 .Fn mtree_digest_create ,
 but all unavailable digest types are excluded.
 .Pp
-To find out which digest types are available before creating an mtree_digest
+To find out which digest types are available before creating an
+.Tn mtree_digest
 structure, use
 .Fn mtree_digest_get_available_types .
 .Pp
@@ -107,19 +109,20 @@ of size
 .Pp
 Use
 .Fn mtree_digest_get_result
-to finalize the computation and retrive the digest of the given
+to finalize the computation and retrieve the digest of the given
 .Fa type .
 The returned string includes a hexadecimal representation of the digest.
-After this function is called, the computation is finalized and further calls
-to
+After this function is called, the computation of the digest for the given
+.Fa type
+is finalized and any further uses of
 .Fn mtree_digest_update
-have no effect.
+will not affect the digest.
 .Pp
 The
 .Fn mtree_digest_reset
 function may be used to reset an
 .Tn mtree_digest
-to its initial state.
+structure to its initial state.
 .Pp
 The
 .Fn mtree_digest_path
@@ -152,7 +155,17 @@ The
 function returns the calculated digest as a string. The string is owned by
 the
 .Tn mtree_digest
-structure and most not be freed.
+structure and must not be freed. The function returns
+.Dv NULL
+if it fails to allocate memory for the returned string. If digest is not
+available for the given
+.Fa type ,
+the function also returns
+.Dv NULL
+and sets
+.Va errno
+to
+.Er EINVAL .
 .Pp
 The
 .Fn mtree_digest_get_types
@@ -175,11 +188,18 @@ appropriately.
 .It Bq Er EINVAL
 The
 .Fa type
-argument to
+argument given to
+.Fn mtree_digest_get_result
+does not specify one of available digest types given to
+.Fn mtree_digest_create .
+.Pp
+The
+.Fa type
+argument given to
 .Fn mtree_digest_path
 or
 .Fn mtree_digest_fd
-is not valid or the type is not supported on the current platform.
+is not valid or the type is not available on the current platform.
 .El
 .Pp
 The

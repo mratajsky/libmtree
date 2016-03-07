@@ -88,19 +88,25 @@ step uses the accumulated length of input to update the checksum at the end of
 the computation. Therefore it is an error to call this function to retrieve an
 intermediate result before the whole input has been passed to
 .Fn mtree_cksum_update .
+Once
+.Fn mtree_cksum_get_result
+is called, no further updates to the checksum are possible and any further uses
+of
+.Fn mtree_cksum_update
+will not affect the checksum.
+.Pp
+The
+.Tn mtree_cksum
+structure can be set to its initial state using the
+.Fn mtree_cksum_reset
+function. The
+.Fa init
+argument is the initial value of the checksum, just as in
+.Fn mtree_cksum_create .
 .Pp
 Use
 .Fn mtree_cksum_free
 to release the resources allocated for the structure.
-.Pp
-The
-.Fn mtree_cksum_reset
-function may be used to reset an
-.Tn mtree_cksum
-structure to its initial state. The
-.Fa init
-argument is the initial value of the checksum, just as in
-.Fn mtree_cksum_create .
 .Pp
 The
 .Fn mtree_cksum_path

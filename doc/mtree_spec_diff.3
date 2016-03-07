@@ -28,7 +28,7 @@
 .Os
 .Sh NAME
 .Nm mtree_spec_diff
-.Nd compare mtree specs
+.Nd compare mtree specifications
 .Sh LIBRARY
 libmtree
 .Sh SYNOPSIS
@@ -58,14 +58,14 @@ The
 .Fn mtree_spec_diff_create
 function compares
 .Fa spec1
-and
-.Fa spec2 ,
+with
+.Fa spec2
 and creates four lists with information about the differences between entries
-in the given specs. The function also accepts a bitwise OR of
+in the given specifications. The function also accepts a bitwise OR of
 .Fa keywords ,
 which allows to restrict the comparison to the given set of keywords. The
 .Fa options
-argument accepts either zero or the option:
+argument accepts either a zero or the option:
 .Pp
 .Bl -tag -offset indent
 .It MTREE_SPEC_DIFF_MATCH_EXTRA_KEYWORDS
@@ -83,17 +83,17 @@ The following functions provide access to the aforementioned lists:
 .It Fn mtree_spec_diff_get_spec1_only
 Get the
 .Em spec1-only
-list. This list includes the entries that are present in the first spec, and the
-second spec doesn't contain any entry with the same path.
+list. This list includes the entries that are present in the first specification, and the
+second specification doesn't contain any entry with the same path.
 .It Fn mtree_spec_diff_get_spec2_only
 Get the
 .Em spec2-only
-list. This list includes the entries, that are present in the second spec, and the
-first spec doesn't contain any entry with the same path.
+list. This list includes the entries, that are present in the second specification, and the
+first specification doesn't contain any entry with the same path.
 .It Fn mtree_spec_diff_get_matching
 Get the
 .Em matching
-list. This list includes the entries, that are present in both lists and have
+list. This list includes the entries, that are present in both specifications and have
 the same set of keywords with the same keyword values.
 .Pp
 This list contains pairs of entries from both specs. That means the first entry
@@ -118,8 +118,8 @@ Just like the
 list, the entries in this list are stored in pairs, first entry being from the
 first list, second entry being from the second list.
 .Pp
-Addionally, the entries in this list have the keyword sets modified to only
-include the keyword that have different values, or that are not present in
+Addionally, the entries in this list have their keyword sets modified to only
+include the keywords that have different values, or that are not present in
 the other spec.
 .El
 .Pp

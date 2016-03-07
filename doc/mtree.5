@@ -126,6 +126,8 @@ The checksum of the file using the default algorithm specified by
 the
 .Xr cksum 1
 utility.
+.It Cm contents
+The full pathname of a file that holds the contents of this file.
 .It Cm device
 The device number for
 .Sy block
@@ -165,15 +167,13 @@ are recognized:
 .Sy solaris ,
 .Sy sunos ,
 .Sy svr3 ,
-.Sy svr4 ,  
-and 
+.Sy svr4 ,
+and
 .Sy ultrix .
 .Pp
 See
 .Xr mknod 8
 for more details.
-.It Cm contents
-The full pathname of a file that holds the contents of this file.
 .It Cm flags
 The file flags as a symbolic name.
 See
@@ -262,6 +262,7 @@ A synonym for
 .Cm sha512 .
 .It Cm size
 The size, in bytes, of the file.
+.It Cm tags
 .It Cm time
 The last modification time of the file.
 .It Cm type
@@ -291,9 +292,7 @@ The file owner as a symbolic name.
 .Pp
 .Sh SEE ALSO
 .Xr cksum 1 ,
-.Xr find 1 ,
 .Xr mtree 8
-.Sh BUGS
 .Sh HISTORY
 The
 .Nm
