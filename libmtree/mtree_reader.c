@@ -1224,12 +1224,11 @@ end:
 				dirs = mtree_entry_unlink(dirs, entry);
 				*entries = mtree_entry_prepend(*entries, entry);
 			}
-			if ((entry->flags & __MTREE_ENTRY_SKIP_CHILDREN) == 0)
-				ret = read_path(r, entry->path, entries, entry);
-
-			if (ret == -1)
-				break;
-
+			if ((entry->flags & __MTREE_ENTRY_SKIP_CHILDREN) == 0) {
+				ret = read_path(r, entry->orig, entries, entry);
+				if (ret == -1)
+					break;
+			}
 			entry = next;
 		}
 	} else {
