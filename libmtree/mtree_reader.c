@@ -1024,7 +1024,7 @@ read_path(struct mtree_reader *r, const char *path, struct mtree_entry **entries
 	int			 skip;
 	int			 skip_children;
 
-	if (parent == NULL) {
+	if (parent == NULL && (r->options & MTREE_READ_PATH_DONT_CROSS_MOUNT) != 0) {
 		struct stat st;
 
 		if ((r->options & MTREE_READ_PATH_FOLLOW_SYMLINKS) != 0)
@@ -1035,31 +1035,6 @@ read_path(struct mtree_reader *r, const char *path, struct mtree_entry **entries
 			mtree_reader_set_errno_prefix(r, errno, "`%s'", path);
 			return (-1);
 		}
-
-		entry = mtree_entry_create(path);
-		if (entry == NULL)
-			return (-1);
-
-		entry->data.type = mtree_entry_type_from_mode(st.st_mode & S_IFMT);
-
-		/*
-		 * If the path doesn't point to a directory, simply store
-		 * the single entry.
-		 */
-		if (entry->data.type != MTREE_ENTRY_DIR) {
-			ret = read_path_file(r, entry, &skip, &skip_children);
-			if (ret == -1 || skip) {
-				if (ret == -1)
-					mtree_reader_set_errno_prefix(r, errno,
-					    "`%s'", path);
-				mtree_entry_free(entry);
-				return (ret);
-			}
-			*entries = entry;
-			return (0);
-		}
-		mtree_entry_free(entry);
-
 		r->base_dev = st.st_dev;
 	}
 
@@ -1120,9 +1095,15 @@ read_path(struct mtree_reader *r, const char *path, struct mtree_entry **entries
 			mtree_entry_free(entry);
 			break;
 		}
-		if (IS_DOT(dp->d_name))
+		if (IS_DOT(dp->d_name)) {
 			entry->orig = strdup(path);
-		else
+			/*
+			 * Enforce directory type as this is the initial path
+			 * and readdir_r() succeeded on it. Allowing anything
+			 * else, such as link, would confuse the reader.
+			 */
+			entry->data.type = MTREE_ENTRY_DIR;
+		} else
 			entry->orig = mtree_concat_path(path, dp->d_name);
 		if (entry->orig == NULL) {
 			mtree_reader_set_errno_error(r, errno, NULL);
@@ -1140,31 +1121,32 @@ read_path(struct mtree_reader *r, const char *path, struct mtree_entry **entries
 		}
 
 #ifdef HAVE_DIRENT_D_TYPE
-		switch (dp->d_type) {
-		case DT_BLK:
-			entry->data.type = MTREE_ENTRY_BLOCK;
-			break;
-		case DT_CHR:
-			entry->data.type = MTREE_ENTRY_CHAR;
-			break;
-		case DT_DIR:
-			entry->data.type = MTREE_ENTRY_DIR;
-			break;
-		case DT_FIFO:
-			entry->data.type = MTREE_ENTRY_FIFO;
-			break;
-		case DT_LNK:
-			entry->data.type = MTREE_ENTRY_LINK;
-			break;
-		case DT_REG:
-			entry->data.type = MTREE_ENTRY_FILE;
-			break;
-		case DT_SOCK:
-			entry->data.type = MTREE_ENTRY_SOCKET;
-			break;
-		default:
-			break;
-		}
+		if (!IS_DOT(dp->d_name))
+			switch (dp->d_type) {
+			case DT_BLK:
+				entry->data.type = MTREE_ENTRY_BLOCK;
+				break;
+			case DT_CHR:
+				entry->data.type = MTREE_ENTRY_CHAR;
+				break;
+			case DT_DIR:
+				entry->data.type = MTREE_ENTRY_DIR;
+				break;
+			case DT_FIFO:
+				entry->data.type = MTREE_ENTRY_FIFO;
+				break;
+			case DT_LNK:
+				entry->data.type = MTREE_ENTRY_LINK;
+				break;
+			case DT_REG:
+				entry->data.type = MTREE_ENTRY_FILE;
+				break;
+			case DT_SOCK:
+				entry->data.type = MTREE_ENTRY_SOCKET;
+				break;
+			default:
+				break;
+			}
 #endif
 		ret = read_path_file(r, entry, &skip, &skip_children);
 		if (ret == -1)
