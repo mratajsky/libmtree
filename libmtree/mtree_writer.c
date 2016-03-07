@@ -964,5 +964,7 @@ int
 mtree_writer_write_entries(struct mtree_writer *w, struct mtree_entry *entries)
 {
 
+	assert(w != NULL);
+
 	return (write_entries(w, entries));
 }

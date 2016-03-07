@@ -1251,7 +1251,8 @@ mtree_reader_read_path(struct mtree_reader *r, const char *path,
 {
 	int ret;
 
-	r->entries = NULL;
+	assert(r != NULL);
+	assert(r->entries == NULL);
 
 	/* Sets reader error. */
 	ret = read_path(r, path, &r->entries, NULL);
