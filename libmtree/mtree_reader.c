@@ -605,7 +605,7 @@ detect_format(struct mtree_reader *r, char *s)
 			 * like that and this shouldn't be the reason for doing
 			 * some complicated look-aheads.
 			 */
-			if (strchr(word, '/') != NULL)
+			if (IS_DOT(word) || strchr(word, '/') != NULL)
 				r->path_last = 1;
 			else
 				r->path_last = 0;
