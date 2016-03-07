@@ -920,41 +920,50 @@ static int
 read_path_file(struct mtree_reader *r, struct mtree_entry *entry, int *skip,
     int *skip_children)
 {
-	struct stat	st;
+	struct stat	st, *stp;
 	int		ret;
 
 	*skip = 0;
 	*skip_children = 0;
-	/*
-	 * We need to stat() to determine the type, even when the user
-	 * hasn't requested any stat keywords.
-	 */
-	if (r->options & MTREE_READ_PATH_FOLLOW_SYMLINKS) {
-		if (entry->orig != NULL)
-			ret = stat(entry->orig, &st);
-		else
-			ret = stat(entry->path, &st);
-	} else {
-		if (entry->orig != NULL)
-			ret = lstat(entry->orig, &st);
-		else
-			ret = lstat(entry->path, &st);
-	}
-	if (ret == -1) {
-		if ((r->options & MTREE_READ_PATH_SKIP_ON_ERROR) == 0)
-			return (-1);
-		entry->data.type = MTREE_ENTRY_UNKNOWN;
-		*skip = 1;
-		return (0);
-	}
+	if (entry->data.type == MTREE_ENTRY_UNKNOWN ||
+	    (entry->data.type == MTREE_ENTRY_DIR &&
+	    (r->options & MTREE_READ_PATH_DONT_CROSS_MOUNT) != 0)) {
+		/*
+		 * We need to stat() to determine the type, even when the user
+		 * hasn't requested any stat keywords.
+		 */
+		stp = &st;
+		if (r->options & MTREE_READ_PATH_FOLLOW_SYMLINKS) {
+			if (entry->orig != NULL)
+				ret = stat(entry->orig, stp);
+			else
+				ret = stat(entry->path, stp);
+		} else {
+			if (entry->orig != NULL)
+				ret = lstat(entry->orig, stp);
+			else
+				ret = lstat(entry->path, stp);
+		}
+		if (ret == -1) {
+			if ((r->options & MTREE_READ_PATH_SKIP_ON_ERROR) == 0) {
+				mtree_reader_set_errno_prefix(r, errno, "`%s'",
+				    entry->orig);
+				return (-1);
+			}
+			*skip = 1;
+			*skip_children = 1;
+			return (0);
+		}
+		entry->data.type = mtree_entry_type_from_mode(stp->st_mode & S_IFMT);
+	} else
+		stp = NULL;
 
-	entry->data.type = mtree_entry_type_from_mode(st.st_mode & S_IFMT);
 	/*
 	 * Watch out for crossing mount point.
 	 */
 	if (entry->data.type == MTREE_ENTRY_DIR &&
 	    (r->options & MTREE_READ_PATH_DONT_CROSS_MOUNT) != 0 &&
-	    r->base_dev != st.st_dev) {
+	    r->base_dev != stp->st_dev) {
 		*skip = 1;
 		*skip_children = 1;
 		return (0);
@@ -967,15 +976,18 @@ read_path_file(struct mtree_reader *r, struct mtree_entry *entry, int *skip,
 		/* Already have the type, no need to convert again. */
 		entry->data.keywords |= MTREE_KEYWORD_TYPE;
 	}
-	/* Set stat keywords. */
-	mtree_entry_set_keywords_stat(entry, &st, r->path_keywords, 0);
-	/*
-	 * Set remaining keywords. Force skipping stat here
-	 * in case some stat field failed to be set. Entry
-	 * would pointlessly call stat() again in such case.
-	 */
-	mtree_entry_set_keywords(entry,
-	    r->path_keywords & ~MTREE_KEYWORD_MASK_STAT, 0);
+	if (stp != NULL) {
+		/* Set stat keywords. */
+		mtree_entry_set_keywords_stat(entry, stp, r->path_keywords, 0);
+		/*
+		 * Set remaining keywords. Force skipping stat here
+		 * in case some stat field failed to be set. Entry
+		 * would pointlessly call stat() again in such case.
+		 */
+		mtree_entry_set_keywords(entry,
+		    r->path_keywords & ~MTREE_KEYWORD_MASK_STAT, 0);
+	} else
+		mtree_entry_set_keywords(entry, r->path_keywords, 0);
 
 	if (r->filter != NULL) {
 		int result;
